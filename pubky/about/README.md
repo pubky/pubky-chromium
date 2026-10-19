@@ -143,7 +143,7 @@ The current public-key transport uses TCP TLS. The
 including HTTP/3 and key-delegation limitations.
 
 Want to help more people use it? Test your sites, improve packaging, or contribute
-platform support. Open a [pull request](https://github.com/SeverinAlexB/pubky-chromium/pulls)
+platform support. Open a [pull request](https://github.com/pubky/pubky-chromium/pulls)
 with your changes, or include a reproducible test case when proposing a fix.
 
 **[Build Pubky Chromium and try your first public-key website →](../README.md#fresh-checkout-and-build)**

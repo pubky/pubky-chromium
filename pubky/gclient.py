@@ -2,7 +2,7 @@
 solutions = [
     {
         "name": "src",
-        "url": "https://github.com/SeverinAlexB/pubky-chromium.git",
+        "url": "https://github.com/pubky/pubky-chromium.git",
         "managed": False,
         "custom_deps": {},
         "custom_vars": {},

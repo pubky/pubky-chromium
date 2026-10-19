@@ -69,7 +69,7 @@ bash pubky/scripts/test_capabilities.sh
 
 ## Repository and branches
 
-- Primary repository (`origin`): https://github.com/SeverinAlexB/pubky-chromium
+- Primary repository (`origin`): https://github.com/pubky/pubky-chromium
 - Custom/default branch: `pubky`
 - Chromium remote (`upstream`): https://chromium.googlesource.com/chromium/src.git
 - Initial upstream base: [upstream-revision.txt](upstream-revision.txt)
@@ -90,7 +90,7 @@ From a directory where you want to create the checkout:
 ```sh
 mkdir pubky-checkout
 git clone --depth=1 --single-branch --branch pubky \
-  https://github.com/SeverinAlexB/pubky-chromium.git pubky-checkout/src
+  https://github.com/pubky/pubky-chromium.git pubky-checkout/src
 git -C pubky-checkout/src remote add upstream \
   https://chromium.googlesource.com/chromium/src.git
 git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git \

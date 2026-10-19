@@ -25,7 +25,7 @@ The inherited project documents macOS ARM64 results in `pubky/VERIFICATION.md`. 
 
 Linux x86_64 is the initial reproduction target on the designated Linux builder. A resource-capped trial there is approved; the previous cloud-only assumption is superseded. No cloud purchase is approved. macOS remains an inherited, unverified-by-us platform; macOS-specific changes need actual macOS validation. Windows is part of the first milestone; Windows-specific changes need Windows validation before a release. Mobile is outside the first milestone.
 
-Each engineer works in its own checkout on its own machine. Builds run on the designated builder in one shared, persistent build folder under its host lock, one at a time; never start from an empty build folder. Running `gclient sync` or changing dependency pins needs the owner. Never delete or clean an `out/` directory.
+Each engineer works in its own checkout on its own machine. Builds run on the designated builder in one shared, persistent build folder under its host lock, one at a time; never start from an empty build folder. Running `gclient sync` or changing dependency pins needs the owner, except for the upstream syncs that [Upstream Chromium updates](#upstream-chromium-updates) allows. Never delete or clean an `out/` directory.
 
 The inherited `pubky/args.gn`, `pubky/gclient.py`, and scripts target macOS ARM64 and use `caffeinate`. Do not run them on Linux as if they were validated Linux commands.
 
@@ -40,7 +40,7 @@ Testing has three levels. Every pull request runs the checks that need no Chromi
 
 ## Branches, review, and integration
 
-Use one branch per issue, based on the pinned development branch, named `s0/<issue-number>-<description>` for foundation work. Give each implementation an isolated writable workspace. Do not force-push or change inherited dependency pins as incidental cleanup. Upstream synchronization cadence and rebase cost are tracked in #54; there are no automatic upstream merges yet.
+Use one branch per issue, based on the pinned development branch, named `s0/<issue-number>-<description>` for foundation work. Give each implementation an isolated writable workspace. Do not force-push or change inherited dependency pins as incidental cleanup. Upstream Chromium updates follow the next section; there are no automatic upstream merges.
 
 An issue is Ready only when its goal, boundaries, dependencies, acceptance checks, and approval context are sufficient to execute. Independent work can proceed in parallel. Shared protocol/interface changes, dependency upgrades, broad refactors, and builds must be coordinated; review takes priority over starting another implementation.
 
@@ -50,6 +50,19 @@ Engineers do not merge. Documentation-only pull requests merge without review. M
 
 Engineers share one GitHub account, so a review comment names the reviewing engineer and the exact commit. Findings, author replies, and decisions belong on the PR.
 
+## Upstream Chromium updates
+
+Decided in #54 (October 2026), after a rehearsal that rebased `pubky` onto Chromium 156.0.8078.43. The measurements are in that issue.
+
+The fork follows Chromium's Extended Stable releases. Chromium ships a stable milestone every two weeks and stops patching the previous one when it does. Extended Stable stays on every fourth milestone (152, then 156) and keeps receiving security fixes until the next one replaces it, about eight weeks later. Google ships Extended Stable only for Windows and macOS, but the release tags build on Linux too.
+
+- **Base.** A release tag from the milestone's branch, `<milestone>.0.<branch>.<patch>`, never `main`. A `main` snapshot such as 156.0.8073.0 never receives security fixes. `upstream-revision.txt` records the commit of the tag in use.
+- **Security updates.** Merge each Extended Stable release of the current milestone and have the release ready for signing within seven days, or within three days when Chrome's release notes say a fixed vulnerability is exploited in the wild. Expected cost: zero or one conflicting file, a few `DEPS` changes, an incremental build per platform (not measured yet; the week from 156.0.8078.36 to .43 changed 284 files) and the release checks.
+- **Milestone syncs.** When Extended Stable moves to a new milestone (next expected: 160, in January 2027), move the fork within two weeks. Expected cost: 80 to 90 conflicting files, most of them resolved by rule, a full rebuild per platform (three hours on Linux for `chrome` and the test targets at 8 to 12 jobs; the first macOS and Windows builds took about seven hours each), the release checks and a release.
+- **Merge, do not rebase.** On a branch off `pubky` named `s0/<issue>-chromium-<version>`, `git merge` the tag, resolve the conflicts, run `gclient sync`, build, run the release checks and open a pull request against `pubky`. `pubky` is never rewritten, so every released source revision stays reachable. The rehearsal replayed the fork's 28 merged pull requests onto the new tag (four conflict stops) and also merged the tag in one step (one stop). Both gave the same files, apart from the order of lines that both sides added in 81 of them.
+- **Conflicts.** The `chromium_strings_*.xtb` files and `tools/traffic_annotation/summary/{annotations,grouping}.xml` conflict on every sync because both sides add lines next to each other. Keep both sides, then check that no id appears twice. Resolve the rest by hand; in the rehearsal that was two GN lists and one changed annotation hash.
+- **Approvals.** A sync that follows this section is approved to run `gclient sync` in the shared build folder and to take upstream's `DEPS` pins, plus a newer depot_tools revision if upstream requires one. Pinning a dependency to anything other than upstream's revision still needs the owner, and so does each release.
+
 ## S0 acceptance ledger
 
 S0 closed in October 2026. Final state of each gate:
@@ -57,7 +70,7 @@ S0 closed in October 2026. Final state of each gate:
 | Gate | Current state |
 |---|---|
 | Mission, exclusions, repository, first platform and operating permissions | Recorded here |
-| Base adoption, source/tool pins, patch scope, licensing, update policy and maintenance-cost evidence | Pins adopted; licensing ships with each release; upstream sync policy and rebase cost tracked in #54 |
+| Base adoption, source/tool pins, patch scope, licensing, update policy and maintenance-cost evidence | Pins adopted; licensing ships with each release; upstream sync policy in [Upstream Chromium updates](#upstream-chromium-updates), rebase cost measured in #54 |
 | Identifier grammar: PKD sites versus Pubky identities, search/fallback, malformed/Unicode input | Recorded in [IDENTIFIERS.md](IDENTIFIERS.md) |
 | TLS trust model: key binding, secure context, downgrade, mixed content, connection display | Recorded in [TLS_TRUST_MODEL.md](TLS_TRUST_MODEL.md), assuming PKResolve resolution and delegation |
 | Profile/avatar lookup and privacy defaults | Settled before identity-card work starts; no new lookups implemented |

@@ -54,7 +54,7 @@ and attackers with physical access, as in upstream Chromium.
 | T13 | Page scripts learn the browser supports Pubky | `navigator.pubky` exposes two capability flags. | Same. | Accepted: a small fingerprinting signal, can be turned off |
 | T14 | Forged or malicious update | Ed25519-signed update records checked against the pinned owner key, then package size and SHA-256. | Unchanged. | Mitigated; the owner key is a single point of failure |
 | T15 | Users trained to bypass OS warnings | macOS builds are ad-hoc signed, so users must allow them in Settings. | Unchanged. | Open: Developer ID and notarization (#35) |
-| T16 | Known Chromium vulnerabilities stay unpatched | The fork is pinned to Chromium 156.0.8073.0 with no upstream sync cadence. | Unchanged. | Open: needs an upstream sync policy |
+| T16 | Known Chromium vulnerabilities stay unpatched | The fork is pinned to Chromium 156.0.8073.0, a `main` snapshot that receives no security fixes. | Unchanged. | Open: sync policy in [PROJECT.md](PROJECT.md#upstream-chromium-updates); mitigated once the first synced release ships |
 | T17 | Idle requests to Google reveal browser use | Search suggestions, AI Mode and prewarming are off by default. | Unchanged. | Partly mitigated; full Google-service inventory pending |
 | T18 | Lookalike labels before the key, such as `paypal.com.<key>` | Labels are shown as typed; nothing emphasizes the key. | Same. | Open: emphasize the key and keep labels in ASCII ([IDENTIFIERS.md](IDENTIFIERS.md)) |
 

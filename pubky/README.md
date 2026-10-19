@@ -182,18 +182,20 @@ clang++ -std=c++20 -Wall -Wextra -Werror -I . \
 
 ## Merging Chromium updates
 
-On the `pubky` branch, with a clean working tree:
+[PROJECT.md](PROJECT.md#upstream-chromium-updates) says which Chromium releases
+the fork follows and how often. On a branch off `pubky`, with a clean working
+tree, merge the release tag:
 
 ```sh
-git fetch upstream main
-git merge upstream/main
+git fetch --no-tags upstream refs/tags/<version>:refs/tags/<version>
+git merge <version>
 bash pubky/scripts/sync.sh
 bash pubky/scripts/build.sh
-git push origin pubky
 ```
 
-For a shallow checkout, first obtain sufficient history to find the merge base;
-`git fetch --unshallow upstream` obtains the full history and can be a large
-download. Resolve source conflicts and rerun both live raw-key acceptance tests
-after each Chromium update. The `upstream` remote retains Google's original
-repository; GitHub also records this repository as a fork of `chromium/chromium`.
+Then open a pull request against `pubky`. A shallow clone works as long as it
+contains the current base commit from `upstream-revision.txt`; the fetch then
+downloads only the upstream commits after it. Resolve source conflicts and
+rerun both live raw-key acceptance tests after each Chromium update. The
+`upstream` remote retains Google's original repository; GitHub also records
+this repository as a fork of `chromium/chromium`.

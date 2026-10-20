@@ -344,7 +344,23 @@ void PubkySessionHostImpl::ContinueRequest(std::vector<Capability> scopes,
     std::move(callback).Run(PubkyStatus::kNotAllowed, std::string());
     return;
   }
-  // Only the scopes the site does not have yet are asked for.
+  // Only the scopes the site does not have yet are asked for. Those outside
+  // the browser's own approval, such as /priv/ paths, go to Pubky Ring, and
+  // approving there is the answer.
+  std::vector<Capability> unapproved =
+      Uncovered(service_->capabilities(), missing);
+  if (!unapproved.empty()) {
+    service_->RequestScopes(
+        std::move(unapproved),
+        base::BindOnce(&PubkySessionHostImpl::OnScopesApproved,
+                       weak_factory_.GetWeakPtr(), missing,
+                       std::move(callback)));
+    // Empty when the service refused to start, which answers the callback.
+    if (!service_->scope_approval_link().empty()) {
+      ui->ShowScopeApproval(web_contents(), origin(), missing);
+    }
+    return;
+  }
   ui->RequestAccess(
       web_contents(), origin(), missing,
       base::BindOnce(&PubkySessionHostImpl::OnAccessDecision,
@@ -354,23 +370,11 @@ void PubkySessionHostImpl::ContinueRequest(std::vector<Capability> scopes,
 void PubkySessionHostImpl::OnAccessDecision(std::vector<Capability> scopes,
                                             RequestSessionCallback callback,
                                             bool allowed) {
-  if (!allowed || !service_->user()) {
+  if (!allowed) {
     std::move(callback).Run(PubkyStatus::kNotAllowed, std::string());
     return;
   }
-  // Scopes outside the browser's own approval, such as /priv/ paths, need a
-  // Pubky Ring approval for those scopes first.
-  std::vector<Capability> unapproved =
-      Uncovered(service_->capabilities(), scopes);
-  if (unapproved.empty()) {
-    Grant(scopes, std::move(callback));
-    return;
-  }
-  service_->RequestScopes(
-      std::move(unapproved),
-      base::BindOnce(&PubkySessionHostImpl::OnScopesApproved,
-                     weak_factory_.GetWeakPtr(), std::move(scopes),
-                     std::move(callback)));
+  Grant(scopes, std::move(callback));
 }
 
 void PubkySessionHostImpl::OnScopesApproved(

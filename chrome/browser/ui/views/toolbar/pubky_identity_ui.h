@@ -11,8 +11,8 @@
 #include "chrome/browser/pubky_session/pubky_session_host_impl.h"
 
 // The browser UI behind navigator.pubky: a site calling it while signed out
-// opens the toolbar's identity panel. There is no site prompt yet, so
-// requests for scopes a site does not have are declined.
+// opens the toolbar's identity panel, and a site asking for new scopes gets
+// PubkySitePromptView.
 class PubkyIdentityUi : public PubkySessionHostImpl::Ui {
  public:
   static PubkyIdentityUi* GetInstance();
@@ -26,6 +26,10 @@ class PubkyIdentityUi : public PubkySessionHostImpl::Ui {
                      const url::Origin& origin,
                      const std::vector<pubky_session::Capability>& scopes,
                      base::OnceCallback<void(bool allowed)> callback) override;
+  void ShowScopeApproval(
+      content::WebContents* contents,
+      const url::Origin& origin,
+      const std::vector<pubky_session::Capability>& scopes) override;
 
  private:
   friend base::NoDestructor<PubkyIdentityUi>;

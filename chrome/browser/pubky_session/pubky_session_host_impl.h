@@ -48,12 +48,21 @@ class PubkySessionHostImpl final
     // Opens the identity panel in the window that shows `contents`, which
     // starts sign-in outside Incognito.
     virtual void OpenSignIn(content::WebContents* contents) = 0;
-    // Asks whether `origin` may use `scopes` with the user's identity.
+    // Asks whether `origin` may use `scopes` with the user's identity. All of
+    // them are within the browser's own approval.
     virtual void RequestAccess(
         content::WebContents* contents,
         const url::Origin& origin,
         const std::vector<pubky_session::Capability>& scopes,
         base::OnceCallback<void(bool allowed)> callback) = 0;
+    // Shows the pending Pubky Ring approval for `scopes`, some of which the
+    // browser's approval does not cover. Approving in Ring is the user's
+    // answer; the prompt closes when the approval ends and cancelling it
+    // cancels the approval.
+    virtual void ShowScopeApproval(
+        content::WebContents* contents,
+        const url::Origin& origin,
+        const std::vector<pubky_session::Capability>& scopes) = 0;
   };
 
   static void Create(

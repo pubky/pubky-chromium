@@ -8,6 +8,7 @@
 
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_button.h"
+#include "chrome/browser/ui/views/toolbar/pubky_site_prompt_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "components/tabs/public/tab_interface.h"
 
@@ -40,5 +41,13 @@ void PubkyIdentityUi::RequestAccess(
     const url::Origin& origin,
     const std::vector<pubky_session::Capability>& scopes,
     base::OnceCallback<void(bool allowed)> callback) {
-  std::move(callback).Run(false);
+  PubkySitePromptView::ShowAccessPrompt(contents, origin, scopes,
+                                        std::move(callback));
+}
+
+void PubkyIdentityUi::ShowScopeApproval(
+    content::WebContents* contents,
+    const url::Origin& origin,
+    const std::vector<pubky_session::Capability>& scopes) {
+  PubkySitePromptView::ShowRingPrompt(contents, origin, scopes);
 }

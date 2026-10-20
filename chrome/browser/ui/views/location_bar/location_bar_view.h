@@ -68,6 +68,7 @@ class PermissionDashboardView;
 class Profile;
 class SelectedKeywordView;
 class PrefChangeRegistrar;
+class PubkyIdentityChipView;
 
 namespace page_actions {
 class PageActionContainerView;
@@ -192,6 +193,7 @@ class LocationBarView
   PermissionDashboardView* permission_dashboard_view() {
     return permission_dashboard_view_;
   }
+  PubkyIdentityChipView* pubky_identity_chip() { return pubky_identity_chip_; }
 
   // LocationBar:
   void FocusLocation(bool is_user_initiated,
@@ -591,6 +593,9 @@ class LocationBarView
   // The container for page action icons.
   raw_ptr<page_actions::PageActionContainerView> page_action_container_ =
       nullptr;
+
+  // Shows the Pubky identity the current site uses.
+  raw_ptr<PubkyIdentityChipView> pubky_identity_chip_ = nullptr;
 
   // An [x] that appears in touch mode (when the OSK is visible) and allows the
   // user to clear all text.

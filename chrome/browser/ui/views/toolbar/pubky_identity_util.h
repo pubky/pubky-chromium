@@ -7,7 +7,9 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include "components/pubky_session/core/capabilities.h"
 #include "components/pubky_session/core/crypto.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/models/image_model.h"
@@ -31,5 +33,16 @@ std::u16string ShortPubkyKey(const pubky_session::Key& key);
 // The name from the user's profile, or the short key.
 std::u16string PubkyIdentityLabel(
     const pubky_session::PubkySessionService& service);
+
+// Whether `scope` is outside public storage, /pub/.
+bool IsPrivateScope(const pubky_session::Capability& scope);
+
+// "Read and write /pub/example.com/", or "Private storage · read
+// /priv/notes/" for scopes outside /pub/.
+std::u16string DescribeScope(const pubky_session::Capability& scope);
+
+// Every scope described, separated by commas.
+std::u16string DescribeScopes(
+    const std::vector<pubky_session::Capability>& scopes);
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_PUBKY_IDENTITY_UTIL_H_

@@ -119,6 +119,11 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
     access_requests_.push_back(pubky_session::CapabilitiesToString(scopes));
     std::move(callback).Run(allow_);
   }
+  void ShowScopeApproval(content::WebContents* contents,
+                         const url::Origin& origin,
+                         const std::vector<Capability>& scopes) override {
+    scope_approvals_.push_back(pubky_session::CapabilitiesToString(scopes));
+  }
 
   PubkySessionService* Service() {
     return PubkySessionServiceFactory::GetForProfile(browser()->profile());
@@ -171,6 +176,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
   bool allow_ = true;
   int open_sign_in_calls_ = 0;
   std::vector<std::string> access_requests_;
+  std::vector<std::string> scope_approvals_;
 };
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
@@ -324,11 +330,13 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
       Tab(),
       "window.result = navigator.pubky.requestSession(['/priv/a.test/:rw'])"
       "    .then(s => s.publicKey, e => e.name);"));
-  // The site was allowed, so the browser asks Ring for the private scope.
+  // Approving in Ring is the answer, so there is no separate prompt.
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return !Service()->scope_approval_link().empty(); }));
   EXPECT_EQ(Service()->pending_scope_capabilities(),
             *pubky_session::ParseCapabilities("/priv/a.test/:rw"));
+  EXPECT_EQ(scope_approvals_, std::vector<std::string>({"/priv/a.test/:rw"}));
+  EXPECT_TRUE(access_requests_.empty());
 
   Service()->CancelSignIn();
   EXPECT_EQ(content::EvalJs(Tab(), "window.result"), "NotAllowedError");

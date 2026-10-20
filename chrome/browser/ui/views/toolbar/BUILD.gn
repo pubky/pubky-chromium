@@ -23,6 +23,7 @@ source_set("toolbar") {
     "pubky_identity_button.h",
     "pubky_identity_ui.h",
     "pubky_identity_util.h",
+    "pubky_site_prompt_view.h",
     "overflow_button.h",
     "overflow_menu.h",
     "pinned_action_toolbar_button.h",
@@ -183,6 +184,7 @@ source_set("impl") {
     "pubky_identity_button.cc",
     "pubky_identity_ui.cc",
     "pubky_identity_util.cc",
+    "pubky_site_prompt_view.cc",
     "overflow_button.cc",
     "overflow_menu.cc",
     "pinned_action_toolbar_button.cc",
@@ -222,10 +224,14 @@ source_set("impl") {
   ]
 
   deps = [
+    "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/pubky_session",
+    "//chrome/browser/ui/views:bubble_anchor_util_views",
     "//chrome/browser/ui/views/controls",
     "//components/pubky_session/core",
     "//components/qr_code_generator:bitmap_generator",
+    "//components/tabs:public",
+    "//components/url_formatter",
     "//ui/base/clipboard",
     ":toolbar",
     "//base:i18n",
@@ -445,9 +451,12 @@ if (!is_android) {
     data = [ "//tools/metrics/actions/actions.xml" ]
 
     deps = [
+      "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/pubky_session",
+      "//chrome/browser/ui/views/location_bar",
       "//components/pubky_session",
       "//components/pubky_session/core",
+      "//net:test_support",
       ":test_support",
       ":toolbar",
       "//base",
@@ -501,6 +510,7 @@ if (!is_android) {
     if (toolkit_views) {
       sources += [
         "pubky_identity_button_browsertest.cc",
+        "pubky_site_prompt_browsertest.cc",
         "toolbar_view_browsertest.cc",
         "webui_home_control_browsertest.cc",
         "webui_home_control_test_base.cc",

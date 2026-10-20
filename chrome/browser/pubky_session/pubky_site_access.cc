@@ -43,6 +43,26 @@ std::optional<std::vector<Capability>> ScopesFor(const base::Value& record,
 
 }  // namespace
 
+SiteAccess::SiteAccess() = default;
+SiteAccess::SiteAccess(const SiteAccess&) = default;
+SiteAccess& SiteAccess::operator=(const SiteAccess&) = default;
+SiteAccess::~SiteAccess() = default;
+
+std::optional<SiteAccess> GetSiteAccess(HostContentSettingsMap* map,
+                                        const url::Origin& origin,
+                                        const Key& user) {
+  const base::Value record = GetRecord(map, origin);
+  std::optional<std::vector<Capability>> scopes = ScopesFor(record, user);
+  if (!scopes || scopes->empty()) {
+    return std::nullopt;
+  }
+  SiteAccess access;
+  access.scopes = std::move(*scopes);
+  access.since = base::ValueToTime(record.GetDict().Find(kSinceKey))
+                     .value_or(base::Time());
+  return access;
+}
+
 std::vector<Capability> GetSiteScopes(HostContentSettingsMap* map,
                                       const url::Origin& origin,
                                       const Key& user) {

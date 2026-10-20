@@ -45,8 +45,10 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   again for the difference.
 - **Private storage.** A request for `/priv/` paths, or any scope outside the
   browser's approval, needs a new Ring approval for that scope only. The
-  browser holds the result as a separate grant next to the sign-in grant and
-  uses whichever grant covers a path.
+  prompt shows that approval's QR code instead of Allow: approving in Ring is
+  the answer, and Cancel withdraws it. The browser holds the result as a
+  separate grant next to the sign-in grant and uses whichever grant covers a
+  path.
 - **Encryption keys.** Deferred. A request with the `e` action fails with
   `NotSupportedError` until the key API is decided, because keys must not
   reach the page and pubky-core leaves the content encryption format to each
@@ -102,6 +104,11 @@ Decided with the owner in October 2026 while starting
   expired browser is `InvalidStateError`. Calls use path addressing,
   `/storage/<user>/<path>`, on the user's homeserver. Public reads work
   without a bearer, so they continue while the approval is expired.
+- **Site UI.** The prompt anchors to the address bar like a permission
+  prompt, asks only for scopes the site lacks, and closes, as a refusal, when
+  the user leaves the page or switches tabs. A connected site shows a chip
+  with the identity in the address bar; it opens page info, whose "Pubky
+  identity" section lists the access and disconnects the site.
 - **Site records.** Each site's scopes live in the `PUBKY_SITE_ACCESS` website
   setting with the identity's key and the date of the first grant. A record
   for another key does not count, so a different identity starts over.

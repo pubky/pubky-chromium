@@ -109,4 +109,70 @@
   <message name="IDS_PUBKY_IDENTITY_INCOGNITO_SIGN_IN" desc="Button that signs in to Pubky for the current Incognito window only.">
     Sign in for this window
   </message>
+  <message name="IDS_PUBKY_SCOPE_READ_WRITE" desc="Describes access to read and write a Pubky storage path. The path is shown as is and must not be translated.">
+    Read and write <ph name="PATH">$1<ex>/pub/example.com/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SCOPE_READ" desc="Describes access to read a Pubky storage path. The path is shown as is and must not be translated.">
+    Read <ph name="PATH">$1<ex>/pub/example.com/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SCOPE_WRITE" desc="Describes access to write a Pubky storage path. The path is shown as is and must not be translated.">
+    Write <ph name="PATH">$1<ex>/pub/example.com/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SCOPE_PRIVATE_READ_WRITE" desc="Describes access to read and write a private Pubky storage path, outside the user's public data. The path is shown as is and must not be translated.">
+    Private storage · read and write <ph name="PATH">$1<ex>/priv/notes/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SCOPE_PRIVATE_READ" desc="Describes access to read a private Pubky storage path. The path is shown as is and must not be translated.">
+    Private storage · read <ph name="PATH">$1<ex>/priv/notes/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SCOPE_PRIVATE_WRITE" desc="Describes access to write a private Pubky storage path. The path is shown as is and must not be translated.">
+    Private storage · write <ph name="PATH">$1<ex>/priv/notes/</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_TITLE" desc="Title of the prompt shown when a site first asks to use the user's Pubky identity.">
+    <ph name="SITE">$1<ex>example.com</ex></ph> wants to use your Pubky identity
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_MORE_TITLE" desc="Title of the prompt shown when a site that already uses the user's Pubky identity asks for more access.">
+    <ph name="SITE">$1<ex>example.com</ex></ph> wants more access
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_CONNECTED" desc="Introduces the list of extra access a connected site asks for. NAME is the user's name or a short form of their key.">
+    Connected as <ph name="NAME">$1<ex>Marcos</ex></ph>. It now also asks for:
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_ASKS" desc="Introduces the list of access a site asks for before the user approves it in the Pubky Ring app.">
+    It asks for:
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_FOOTNOTE" desc="Below the access a site asks for, telling the user where to change it later.">
+    You can change this anytime in site settings.
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_ALLOW" desc="Button that lets the site use the user's Pubky identity with the listed access.">
+    Allow
+  </message>
+  <message name="IDS_PUBKY_SITE_PROMPT_DENY" desc="Button that refuses the site's request to use the user's Pubky identity.">
+    Don't allow
+  </message>
+  <message name="IDS_PUBKY_RING_PROMPT_TITLE" desc="Heading next to a QR code the user scans with the Pubky Ring app to approve more access for a site.">
+    Approve in Pubky Ring
+  </message>
+  <message name="IDS_PUBKY_RING_PROMPT_BODY" desc="Explains that scanning the QR code with Pubky Ring adds only the listed access to the browser's approval.">
+    Scan with Ring. Only this scope is added to the browser's approval.
+  </message>
+  <message name="IDS_PUBKY_RING_PROMPT_QR_ACCESSIBLE_NAME" desc="Accessible name of the QR code for approving more access in Pubky Ring.">
+    QR code to approve in Pubky Ring
+  </message>
+  <message name="IDS_PUBKY_PAGE_INFO_HEADER" desc="Heading of the page info section about the site's use of the user's Pubky identity.">
+    Pubky identity
+  </message>
+  <message name="IDS_PUBKY_PAGE_INFO_CONNECTED_AS" desc="In page info, says which Pubky identity the site uses. NAME is the user's name or a short form of their key.">
+    Connected as <ph name="NAME">$1<ex>Marcos</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_PAGE_INFO_ACCESS_SINCE" desc="In page info, the site's access and the date it was first allowed.">
+    <ph name="ACCESS">$1<ex>Read and write /pub/example.com/</ex></ph> · since <ph name="DATE">$2<ex>Oct 20, 2026</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_PAGE_INFO_ACCESS_SINCE_TODAY" desc="In page info, the site's access when it was first allowed today.">
+    <ph name="ACCESS">$1<ex>Read and write /pub/example.com/</ex></ph> · since today
+  </message>
+  <message name="IDS_PUBKY_PAGE_INFO_DISCONNECT" desc="Button in page info that removes the site's access to the user's Pubky identity.">
+    Disconnect this site
+  </message>
+  <message name="IDS_PUBKY_CHIP_TOOLTIP" desc="Tooltip of the address bar chip that shows which Pubky identity the current site uses. NAME is the user's name or a short form of their key.">
+    This site uses your Pubky identity, <ph name="NAME">$1<ex>Marcos</ex></ph>
+  </message>
 </grit-part>

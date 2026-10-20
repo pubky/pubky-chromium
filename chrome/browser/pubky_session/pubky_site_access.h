@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_PUBKY_SESSION_PUBKY_SITE_ACCESS_H_
 #define CHROME_BROWSER_PUBKY_SESSION_PUBKY_SITE_ACCESS_H_
 
+#include <optional>
 #include <vector>
 
+#include "base/time/time.h"
 #include "components/pubky_session/core/capabilities.h"
 #include "components/pubky_session/core/crypto.h"
 
@@ -20,6 +22,22 @@ class Origin;
 // PUBKY_SITE_ACCESS website setting. A record belongs to the identity that
 // allowed it: after signing in with another key, the site starts over.
 namespace pubky_session {
+
+struct SiteAccess {
+  SiteAccess();
+  SiteAccess(const SiteAccess&);
+  SiteAccess& operator=(const SiteAccess&);
+  ~SiteAccess();
+
+  std::vector<Capability> scopes;
+  // When the site was first allowed.
+  base::Time since;
+};
+
+// What `origin` may use with `user`'s identity, if anything.
+std::optional<SiteAccess> GetSiteAccess(HostContentSettingsMap* map,
+                                        const url::Origin& origin,
+                                        const Key& user);
 
 // The scopes `origin` may use with `user`'s identity. Empty when none.
 std::vector<Capability> GetSiteScopes(HostContentSettingsMap* map,

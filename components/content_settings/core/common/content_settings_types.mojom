@@ -482,5 +482,10 @@ enum ContentSettingsType {
 
   // Stores allowlist decisions for Suspicious Site Warnings.
   SUSPICIOUS_SITE_WARNING_DATA,
+
+  // Website setting holding the Pubky storage scopes the user allowed a site
+  // to use through navigator.pubky, and for which identity. See
+  // pubky/SESSIONS.md.
+  PUBKY_SITE_ACCESS,
 };
 // LINT.ThenChange(//components/content_settings/core/common/content_settings_uma_constants.h:kContentSettingsTypeToHistogramValue)

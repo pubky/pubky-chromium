@@ -9,9 +9,11 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/pubky_session/pubky_session_host_impl.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_bubble_view.h"
+#include "chrome/browser/ui/views/toolbar/pubky_identity_ui.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
@@ -40,6 +42,8 @@ PubkyIdentityButton::PubkyIdentityButton(Browser* browser)
   }
   observation_.Observe(service_.get());
   UpdateAppearance();
+  // The toolbar owns the identity panel, so it provides navigator.pubky's UI.
+  PubkySessionHostImpl::SetUi(PubkyIdentityUi::GetInstance());
 }
 
 PubkyIdentityButton::~PubkyIdentityButton() = default;
@@ -48,18 +52,24 @@ void PubkyIdentityButton::OnPubkySessionChanged() {
   UpdateAppearance();
 }
 
-void PubkyIdentityButton::ButtonPressed() {
-  if (PubkyIdentityBubbleView::IsShowing()) {
-    PubkyIdentityBubbleView::Hide();
-    return;
-  }
+void PubkyIdentityButton::OpenPanel() {
   // Outside Incognito the panel shows a live sign-in link as soon as it
   // opens. Incognito asks first, because a sign-in there ends with the window.
   if (service_->state() == State::kSignedOut &&
       !browser_->profile()->IsOffTheRecord()) {
     service_->StartSignIn(base::DoNothing());
   }
-  PubkyIdentityBubbleView::Show(this, browser_);
+  if (!PubkyIdentityBubbleView::IsShowing()) {
+    PubkyIdentityBubbleView::Show(this, browser_);
+  }
+}
+
+void PubkyIdentityButton::ButtonPressed() {
+  if (PubkyIdentityBubbleView::IsShowing()) {
+    PubkyIdentityBubbleView::Hide();
+    return;
+  }
+  OpenPanel();
 }
 
 void PubkyIdentityButton::UpdateAppearance() {

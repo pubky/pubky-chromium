@@ -23,6 +23,14 @@ StoredSession Example() {
   Key secret;
   secret.fill(4);
   session.encryption_keys.push_back({"/priv/notes/", secret});
+  ScopeGrant scope_grant;
+  scope_grant.grant_jws = "header.scope.signature";
+  scope_grant.grant_id = "BBBBBBBBBBBBBBBBBBBBBB";
+  scope_grant.capabilities = *ParseCapabilities("/priv/app/:rw");
+  scope_grant.bearer = "scope-bearer";
+  scope_grant.token_expires_at = 4102444801;
+  scope_grant.grant_expires_at = 4102448401;
+  session.scope_grants.push_back(scope_grant);
   return session;
 }
 
@@ -44,6 +52,14 @@ TEST(PubkySessionStoreTest, RoundTrips) {
   EXPECT_EQ(parsed->encryption_keys[0].scope, "/priv/notes/");
   EXPECT_EQ(parsed->encryption_keys[0].secret,
             session.encryption_keys[0].secret);
+  ASSERT_EQ(parsed->scope_grants.size(), 1u);
+  const ScopeGrant& scope_grant = parsed->scope_grants[0];
+  EXPECT_EQ(scope_grant.grant_jws, "header.scope.signature");
+  EXPECT_EQ(scope_grant.grant_id, "BBBBBBBBBBBBBBBBBBBBBB");
+  EXPECT_EQ(scope_grant.capabilities, *ParseCapabilities("/priv/app/:rw"));
+  EXPECT_EQ(scope_grant.bearer, "scope-bearer");
+  EXPECT_EQ(scope_grant.token_expires_at, 4102444801u);
+  EXPECT_EQ(scope_grant.grant_expires_at, 4102448401u);
 }
 
 TEST(PubkySessionStoreTest, RejectsDamagedRecords) {
@@ -52,6 +68,9 @@ TEST(PubkySessionStoreTest, RejectsDamagedRecords) {
   EXPECT_FALSE(ParseStoredSession(R"({"version":2})"));
   std::string json = SerializeStoredSession(Example());
   json.replace(json.find("\"bearer\""), 8, "\"bearex\"");
+  EXPECT_FALSE(ParseStoredSession(json));
+  json = SerializeStoredSession(Example());
+  json.replace(json.find("\"scope_grants\""), 14, "\"scope_grantx\"");
   EXPECT_FALSE(ParseStoredSession(json));
 }
 

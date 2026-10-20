@@ -6417,6 +6417,7 @@ interface Navigator
     getter product
     getter productSub
     getter protectedAudience
+    getter pubky
     getter scheduling
     getter serial
     getter serviceWorker
@@ -7341,6 +7342,18 @@ interface ProtectedAudience
     attribute @@toStringTag
     method constructor
     method queryFeatureSupport
+interface Pubky
+    attribute @@toStringTag
+    method constructor
+    method requestSession
+interface PubkySession
+    attribute @@toStringTag
+    getter publicKey
+    method constructor
+    method delete
+    method get
+    method list
+    method put
 interface PublicKeyCredential : Credential
     static method getClientCapabilities
     static method isUserVerifyingPlatformAuthenticatorAvailable

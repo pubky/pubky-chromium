@@ -21,6 +21,7 @@ source_set("toolbar") {
     "home_button.h",
     "pubky_identity_bubble_view.h",
     "pubky_identity_button.h",
+    "pubky_identity_ui.h",
     "pubky_identity_util.h",
     "overflow_button.h",
     "overflow_menu.h",
@@ -61,6 +62,7 @@ source_set("toolbar") {
   ]
 
   public_deps = [
+    "//chrome/browser/pubky_session",
     "//components/pubky_session",
     ":app_menu_control",
     ":toolbar_button",
@@ -179,6 +181,7 @@ source_set("impl") {
     "home_button.cc",
     "pubky_identity_bubble_view.cc",
     "pubky_identity_button.cc",
+    "pubky_identity_ui.cc",
     "pubky_identity_util.cc",
     "overflow_button.cc",
     "overflow_menu.cc",

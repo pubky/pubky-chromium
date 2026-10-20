@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<title>navigator.pubky is hidden outside secure contexts</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+test(() => {
+  assert_false(window.isSecureContext);
+  assert_false('pubky' in navigator);
+  assert_equals(typeof Pubky, 'undefined');
+  assert_equals(typeof PubkySession, 'undefined');
+}, 'navigator.pubky and its interfaces are not exposed');
+</script>

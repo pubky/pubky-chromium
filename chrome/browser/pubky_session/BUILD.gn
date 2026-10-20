@@ -4,16 +4,49 @@
 
 source_set("pubky_session") {
   sources = [
+    "pubky_session_host_impl.cc",
+    "pubky_session_host_impl.h",
     "pubky_session_service_factory.cc",
     "pubky_session_service_factory.h",
+    "pubky_site_access.cc",
+    "pubky_site_access.h",
   ]
   public_deps = [
     "//chrome/browser/profiles:profile",
     "//components/pubky_session",
+    "//content/public/browser",
+    "//third_party/blink/public/common",
   ]
   deps = [
     "//base",
     "//chrome/browser:browser_process",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//mojo/public/cpp/base",
+    "//services/network/public/cpp",
+    "//url",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "pubky_session_host_browsertest.cc" ]
+  deps = [
+    ":pubky_session",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//components/pubky_session",
+    "//components/pubky_session/core",
     "//content/public/browser",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//url",
   ]
 }

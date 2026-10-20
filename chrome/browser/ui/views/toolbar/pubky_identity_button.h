@@ -32,6 +32,10 @@ class PubkyIdentityButton
   // pubky_session::PubkySessionService::Observer:
   void OnPubkySessionChanged() override;
 
+  // Opens the identity panel, starting sign-in when signed out outside
+  // Incognito. Also used when a site asks for the identity.
+  void OpenPanel();
+
   std::u16string label_for_testing() const { return label_; }
 
  private:

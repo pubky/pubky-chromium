@@ -5,6 +5,9 @@
 #ifndef COMPONENTS_PUBKY_SESSION_PUBKY_SESSION_SERVICE_H_
 #define COMPONENTS_PUBKY_SESSION_PUBKY_SESSION_SERVICE_H_
 
+#include <stdint.h>
+
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -69,6 +72,52 @@ class PubkySessionService : public KeyedService {
     kNetworkError,
   };
 
+  enum class StorageMethod { kGet, kPut, kDelete, kList };
+
+  // One call to the user's homeserver storage on behalf of a site. The caller
+  // has already checked the site's scope; the service picks the grant.
+  struct StorageRequest {
+    StorageRequest();
+    StorageRequest(StorageRequest&&);
+    StorageRequest& operator=(StorageRequest&&);
+    ~StorageRequest();
+
+    StorageMethod method = StorageMethod::kGet;
+    // A canonical storage path. kList takes a directory, ending in '/'.
+    std::string path;
+    // kPut only.
+    std::string body;
+    std::string content_type;
+    // kList only.
+    std::optional<uint16_t> limit;
+    std::string cursor;
+    bool shallow = false;
+    bool reverse = false;
+  };
+
+  enum class StorageStatus {
+    kOk,
+    kNotFound,
+    // No grant covers the request: signed out, approval expired, or a write
+    // or private read without an approved scope.
+    kNotSignedIn,
+    // The homeserver refused the bearer.
+    kForbidden,
+    kTooLarge,
+    kNetworkError,
+  };
+
+  struct StorageResponse {
+    StorageResponse();
+    StorageResponse(StorageResponse&&);
+    StorageResponse& operator=(StorageResponse&&);
+    ~StorageResponse();
+
+    StorageStatus status = StorageStatus::kNetworkError;
+    std::string content_type;
+    std::string body;
+  };
+
   class Observer : public base::CheckedObserver {
    public:
     virtual void OnPubkySessionChanged() = 0;
@@ -120,6 +169,8 @@ class PubkySessionService : public KeyedService {
   // The signed-in identity, also known while the approval is expired.
   std::optional<Key> user() const;
   std::optional<Key> homeserver() const;
+  // Everything the browser's approval covers: the sign-in grant's
+  // capabilities and those of scope grants added later.
   std::vector<Capability> capabilities() const;
 
   // The `name` from the user's own /pub/pubky.app/profile.json, read from
@@ -135,8 +186,22 @@ class PubkySessionService : public KeyedService {
   void StartSignIn(SignInCallback callback);
   void CancelSignIn();
 
-  // Revokes the grant on the homeserver (best effort) and deletes the stored
-  // session at once.
+  // Starts a Pubky Ring approval for `capabilities`, which the browser's
+  // approval does not cover yet, such as a site's /priv/ path. The approved
+  // grant is added to the session next to the sign-in grant. Only while signed
+  // in and no other approval is pending; `callback` runs once with the
+  // outcome, kSignedIn when the grant was added. Capabilities with the `e`
+  // action are refused.
+  void RequestScopes(std::vector<Capability> capabilities,
+                     SignInCallback callback);
+
+  // The link and capabilities of the pending scope approval, for the Ring
+  // prompt. Empty otherwise.
+  std::string scope_approval_link() const;
+  std::vector<Capability> pending_scope_capabilities() const;
+
+  // Revokes every grant on the homeserver (best effort) and deletes the
+  // stored session at once.
   void SignOut();
 
   // A bearer valid for at least `refresh_margin`, refreshing it first when
@@ -144,6 +209,12 @@ class PubkySessionService : public KeyedService {
   using BearerCallback =
       base::OnceCallback<void(std::optional<std::string> bearer)>;
   void GetBearer(BearerCallback callback);
+
+  // Sends `request` to the user's homeserver with the bearer of the grant that
+  // covers its path. Public reads go out without a bearer when no grant is
+  // valid. `callback` always runs.
+  using StorageCallback = base::OnceCallback<void(StorageResponse)>;
+  void SendStorageRequest(StorageRequest request, StorageCallback callback);
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -155,6 +226,16 @@ class PubkySessionService : public KeyedService {
 
  private:
   struct PendingSignIn;
+
+  struct ScopeRefresh {
+    ScopeRefresh();
+    ScopeRefresh(ScopeRefresh&&);
+    ScopeRefresh& operator=(ScopeRefresh&&);
+    ~ScopeRefresh();
+
+    std::unique_ptr<network::SimpleURLLoader> loader;
+    std::vector<BearerCallback> callbacks;
+  };
 
   void OnEncryptorReady(scoped_refptr<os_crypt_async::Encryptor> encryptor);
   void OnStoredDataRead(std::optional<std::string> data);
@@ -170,6 +251,9 @@ class PubkySessionService : public KeyedService {
   void ExchangeGrant();
   void OnExchangeResponse(std::optional<std::string> body);
   void FinishSignIn(SignInResult result);
+  void StartApproval(std::vector<Capability> capabilities,
+                     bool adds_scopes,
+                     SignInCallback callback);
 
   // Bearer upkeep.
   void ScheduleRefresh();
@@ -177,12 +261,30 @@ class PubkySessionService : public KeyedService {
   void OnRefreshResponse(std::optional<std::string> body);
   void RunBearerCallbacks();
 
+  // Scope grants.
+  void GetBearerFor(const Capability& needed, BearerCallback callback);
+  ScopeGrant* FindScopeGrant(const std::string& grant_id);
+  void RemoveExpiredScopeGrants();
+  void RefreshScopeGrant(const std::string& grant_id, BearerCallback callback);
+  void OnScopeRefreshResponse(const std::string& grant_id,
+                              std::optional<std::string> body);
+  void CancelScopeRefreshes();
+
+  // Storage.
+  void StartStorageRequest(StorageRequest request,
+                           StorageCallback callback,
+                           std::optional<std::string> bearer);
+  void OnStorageResponse(int loader_id,
+                         StorageCallback callback,
+                         std::optional<std::string> body);
+
   // The user's own public profile, for the display name.
   void FetchProfile();
   void OnProfileResponse(std::optional<std::string> body);
 
   void Persist();
   void DeleteStoredSession();
+  // Revokes the sign-in grant and every scope grant.
   void SendLogout(scoped_refptr<network::SharedURLLoaderFactory> factory);
 
   SEQUENCE_CHECKER(sequence_checker_);
@@ -198,16 +300,20 @@ class PubkySessionService : public KeyedService {
   State state_ = State::kLoading;
   // Present when signed in or expired.
   std::optional<StoredSession> session_;
+  // A sign-in, or a scope approval while signed in. One at a time.
   std::unique_ptr<PendingSignIn> pending_;
-  // The one in-flight sign-in or refresh request.
+  // The sign-in grant's refresh.
   std::unique_ptr<network::SimpleURLLoader> loader_;
   std::unique_ptr<network::SimpleURLLoader> profile_loader_;
+  // Scope grant refreshes, by grant ID.
+  std::map<std::string, ScopeRefresh> scope_refreshes_;
+  std::map<int, std::unique_ptr<network::SimpleURLLoader>> storage_loaders_;
+  int next_storage_loader_id_ = 0;
   std::optional<std::string> display_name_;
   std::optional<SignInResult> last_sign_in_result_;
   bool refreshing_ = false;
   std::vector<BearerCallback> bearer_callbacks_;
   base::OneShotTimer refresh_timer_;
-  base::OneShotTimer retry_timer_;
   base::ObserverList<Observer> observers_;
 
   base::WeakPtrFactory<PubkySessionService> weak_factory_{this};

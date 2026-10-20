@@ -106,6 +106,7 @@
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/payments/payment_request_factory.h"
 #include "chrome/browser/prefs/persistent_renderer_prefs_manager.h"
+#include "chrome/browser/pubky_session/pubky_session_host_impl.h"
 #include "chrome/browser/web_applications/web_install_service_impl.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -518,6 +519,7 @@ void PopulateChromeFrameBinders(
       &badging::BadgeManager::BindFrameReceiverIfAllowed);
   map->Add<blink::mojom::PersistentRendererPrefsService>(
       &PersistentRendererPrefsManager::BindFrameReceiver);
+  map->Add<blink::mojom::PubkySessionHost>(&PubkySessionHostImpl::Create);
   if (base::FeatureList::IsEnabled(features::kWebPayments)) {
     map->Add<payments::mojom::PaymentRequest>(&payments::CreatePaymentRequest);
   }

@@ -36,7 +36,49 @@ std::optional<uint64_t> FindTime(const base::DictValue& dict,
   return value;
 }
 
+base::DictValue SerializeScopeGrant(const ScopeGrant& grant) {
+  return base::DictValue()
+      .Set("grant", grant.grant_jws)
+      .Set("grant_id", grant.grant_id)
+      .Set("capabilities", CapabilitiesToString(grant.capabilities))
+      .Set("bearer", grant.bearer)
+      .Set("token_expires_at", base::NumberToString(grant.token_expires_at))
+      .Set("grant_expires_at", base::NumberToString(grant.grant_expires_at));
+}
+
+std::optional<ScopeGrant> ParseScopeGrant(const base::Value& value) {
+  const base::DictValue* dict = value.GetIfDict();
+  if (!dict) {
+    return std::nullopt;
+  }
+  const std::string* grant = dict->FindString("grant");
+  const std::string* grant_id = dict->FindString("grant_id");
+  const std::string* capabilities = dict->FindString("capabilities");
+  const std::string* bearer = dict->FindString("bearer");
+  std::optional<uint64_t> token_expires_at = FindTime(*dict, "token_expires_at");
+  std::optional<uint64_t> grant_expires_at = FindTime(*dict, "grant_expires_at");
+  std::optional<std::vector<Capability>> parsed_capabilities =
+      capabilities ? ParseCapabilities(*capabilities) : std::nullopt;
+  if (!grant || !grant_id || !parsed_capabilities || !bearer ||
+      !token_expires_at || !grant_expires_at) {
+    return std::nullopt;
+  }
+  ScopeGrant scope_grant;
+  scope_grant.grant_jws = *grant;
+  scope_grant.grant_id = *grant_id;
+  scope_grant.capabilities = std::move(*parsed_capabilities);
+  scope_grant.bearer = *bearer;
+  scope_grant.token_expires_at = *token_expires_at;
+  scope_grant.grant_expires_at = *grant_expires_at;
+  return scope_grant;
+}
+
 }  // namespace
+
+ScopeGrant::ScopeGrant() = default;
+ScopeGrant::ScopeGrant(const ScopeGrant&) = default;
+ScopeGrant& ScopeGrant::operator=(const ScopeGrant&) = default;
+ScopeGrant::~ScopeGrant() = default;
 
 StoredSession::StoredSession() = default;
 StoredSession::StoredSession(const StoredSession&) = default;
@@ -64,6 +106,11 @@ std::string SerializeStoredSession(const StoredSession& session) {
                     .Set("secret", Base64UrlEncode(KeyAsBytes(key.secret))));
   }
   dict.Set("encryption_keys", std::move(keys));
+  base::ListValue scope_grants;
+  for (const ScopeGrant& grant : session.scope_grants) {
+    scope_grants.Append(SerializeScopeGrant(grant));
+  }
+  dict.Set("scope_grants", std::move(scope_grants));
   std::optional<std::string> json = base::WriteJson(dict);
   CHECK(json);
   return std::move(*json);
@@ -86,9 +133,10 @@ std::optional<StoredSession> ParseStoredSession(std::string_view json) {
   std::optional<uint64_t> token_expires_at = FindTime(*dict, "token_expires_at");
   std::optional<uint64_t> grant_expires_at = FindTime(*dict, "grant_expires_at");
   const base::ListValue* keys = dict->FindList("encryption_keys");
+  const base::ListValue* scope_grants = dict->FindList("scope_grants");
   if (!client_seed || !grant || !user || !homeserver || !grant_id ||
       !capabilities || !bearer || !token_expires_at || !grant_expires_at ||
-      !keys) {
+      !keys || !scope_grants) {
     return std::nullopt;
   }
   std::optional<Key> user_key = DecodeZ32(*user);
@@ -106,6 +154,13 @@ std::optional<StoredSession> ParseStoredSession(std::string_view json) {
       return std::nullopt;
     }
     session.encryption_keys.push_back({*scope, *secret});
+  }
+  for (const base::Value& entry : *scope_grants) {
+    std::optional<ScopeGrant> scope_grant = ParseScopeGrant(entry);
+    if (!scope_grant) {
+      return std::nullopt;
+    }
+    session.scope_grants.push_back(std::move(*scope_grant));
   }
   session.client_seed = *client_seed;
   session.grant_jws = *grant;

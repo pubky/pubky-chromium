@@ -13,15 +13,19 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
+#include "base/notreached.h"
+#include "base/strings/escape.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "base/values.h"
 #include "base/task/thread_pool.h"
+#include "base/values.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/pubky_session/core/grant_session.h"
 #include "components/pubky_session/core/pkarr_packet.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
+#include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -42,6 +46,7 @@ constexpr int kMaxRelayFailures = 3;
 constexpr base::TimeDelta kRelayRetryDelay = base::Seconds(2);
 constexpr base::TimeDelta kRequestTimeout = base::Seconds(30);
 constexpr base::TimeDelta kRefreshRetryDelay = base::Seconds(30);
+constexpr size_t kMaxStorageBodySize = 32 * 1024 * 1024;
 
 constexpr net::NetworkTrafficAnnotationTag kRelayTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("pubky_session_relay", R"(
@@ -162,6 +167,42 @@ constexpr net::NetworkTrafficAnnotationTag kProfileTrafficAnnotation =
           "Reads only the signed-in user's own public data."
       })");
 
+constexpr net::NetworkTrafficAnnotationTag kStorageTrafficAnnotation =
+    net::DefineNetworkTrafficAnnotation("pubky_session_storage", R"(
+      semantics {
+        sender: "Pubky session"
+        description:
+          "Reads, writes, deletes and lists files in the signed-in user's "
+          "Pubky storage for a site the user allowed, within the paths the "
+          "user allowed for that site."
+        trigger:
+          "A site the user connected to their Pubky identity calls the "
+          "navigator.pubky session API."
+        data:
+          "The storage path, the file the site writes, and the browser's "
+          "bearer for the user's homeserver."
+        user_data {
+          type: ACCESS_TOKENS
+          type: USER_CONTENT
+        }
+        destination: OTHER
+        destination_other: "The user's own Pubky homeserver."
+        internal {
+          contacts {
+            owners: "chrome/browser/OWNERS"
+          }
+        }
+        last_reviewed: "2026-10-20"
+      }
+      policy {
+        cookies_allowed: NO
+        setting:
+          "Only for sites the user allowed. Removing a site's access or "
+          "signing out from the identity button stops it."
+        policy_exception_justification:
+          "Each site needs the user's permission first."
+      })");
+
 constexpr size_t kMaxProfileSize = 16 * 1024;
 constexpr size_t kMaxDisplayNameBytes = 64;
 
@@ -194,10 +235,15 @@ std::optional<std::string> ParseProfileName(std::string_view json) {
 std::unique_ptr<network::SimpleURLLoader> CreateLoader(
     const GURL& url,
     const std::string& method,
-    const net::NetworkTrafficAnnotationTag& annotation) {
+    const net::NetworkTrafficAnnotationTag& annotation,
+    const std::string* bearer = nullptr) {
   auto request = std::make_unique<network::ResourceRequest>();
   request->url = url;
   request->method = method;
+  if (bearer) {
+    request->headers.SetHeader(net::HttpRequestHeaders::kAuthorization,
+                               "Bearer " + *bearer);
+  }
   request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   request->referrer_policy = net::ReferrerPolicy::NO_REFERRER;
   request->load_flags = net::LOAD_DISABLE_CACHE;
@@ -211,6 +257,59 @@ int ResponseCode(const network::SimpleURLLoader& loader) {
 
 GURL GrantSessionUrl(const Key& homeserver) {
   return GURL("https://" + EncodeZ32(homeserver) + kGrantSessionPath);
+}
+
+bool IsExpired(uint64_t unix_seconds) {
+  return base::Time::Now() >=
+         base::Time::FromTimeT(static_cast<time_t>(unix_seconds));
+}
+
+const char* HttpMethod(PubkySessionService::StorageMethod method) {
+  switch (method) {
+    case PubkySessionService::StorageMethod::kGet:
+    case PubkySessionService::StorageMethod::kList:
+      return "GET";
+    case PubkySessionService::StorageMethod::kPut:
+      return "PUT";
+    case PubkySessionService::StorageMethod::kDelete:
+      return "DELETE";
+  }
+  NOTREACHED();
+}
+
+bool IsWrite(PubkySessionService::StorageMethod method) {
+  return method == PubkySessionService::StorageMethod::kPut ||
+         method == PubkySessionService::StorageMethod::kDelete;
+}
+
+// Path-addressed storage: /storage/<user>/<path>, with each path segment
+// escaped so that '?', '#' and '%' stay part of the path.
+GURL StorageUrl(const Key& homeserver,
+                const Key& user,
+                const PubkySessionService::StorageRequest& request) {
+  std::string url = "https://" + EncodeZ32(homeserver) + "/storage/" +
+                    EncodeZ32(user) + base::EscapePath(request.path);
+  if (request.method == PubkySessionService::StorageMethod::kList) {
+    std::vector<std::string> query;
+    if (request.limit) {
+      query.push_back("limit=" + base::NumberToString(*request.limit));
+    }
+    if (!request.cursor.empty()) {
+      query.push_back("cursor=" +
+                      base::EscapeQueryParamValue(request.cursor,
+                                                  /*use_plus=*/false));
+    }
+    if (request.shallow) {
+      query.push_back("shallow=true");
+    }
+    if (request.reverse) {
+      query.push_back("reverse=true");
+    }
+    if (!query.empty()) {
+      url += "?" + base::JoinString(query, "&");
+    }
+  }
+  return GURL(url);
 }
 
 // Sends a request whose answer does not matter. The loader deletes itself
@@ -240,6 +339,8 @@ void WriteStoredFile(const base::FilePath& path, const std::string& data) {
 }  // namespace
 
 struct PubkySessionService::PendingSignIn {
+  // A scope approval for a signed-in session, rather than a sign-in.
+  bool adds_scopes = false;
   SigninGrantRequest request;
   Key client_seed{};
   std::string link;
@@ -251,7 +352,28 @@ struct PubkySessionService::PendingSignIn {
   std::optional<GrantApproval> approval;
   size_t relay_index = 0;
   Key homeserver{};
+  std::unique_ptr<network::SimpleURLLoader> loader;
+  base::OneShotTimer retry_timer;
 };
+
+PubkySessionService::StorageRequest::StorageRequest() = default;
+PubkySessionService::StorageRequest::StorageRequest(StorageRequest&&) = default;
+PubkySessionService::StorageRequest&
+PubkySessionService::StorageRequest::operator=(StorageRequest&&) = default;
+PubkySessionService::StorageRequest::~StorageRequest() = default;
+
+PubkySessionService::StorageResponse::StorageResponse() = default;
+PubkySessionService::StorageResponse::StorageResponse(StorageResponse&&) =
+    default;
+PubkySessionService::StorageResponse&
+PubkySessionService::StorageResponse::operator=(StorageResponse&&) = default;
+PubkySessionService::StorageResponse::~StorageResponse() = default;
+
+PubkySessionService::ScopeRefresh::ScopeRefresh() = default;
+PubkySessionService::ScopeRefresh::ScopeRefresh(ScopeRefresh&&) = default;
+PubkySessionService::ScopeRefresh&
+PubkySessionService::ScopeRefresh::operator=(ScopeRefresh&&) = default;
+PubkySessionService::ScopeRefresh::~ScopeRefresh() = default;
 
 PubkySessionService::Config::Config() = default;
 PubkySessionService::Config::Config(const Config&) = default;
@@ -286,10 +408,11 @@ PubkySessionService::~PubkySessionService() = default;
 void PubkySessionService::Shutdown() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   refresh_timer_.Stop();
-  retry_timer_.Stop();
   loader_.reset();
   profile_loader_.reset();
   pending_.reset();
+  scope_refreshes_.clear();
+  storage_loaders_.clear();
   // An Incognito sign-in ends with its windows.
   if (storage_path_.empty() && session_ && shutdown_url_loader_factory_) {
     SendLogout(shutdown_url_loader_factory_);
@@ -302,7 +425,17 @@ PubkySessionService::State PubkySessionService::state() const {
 }
 
 std::string PubkySessionService::signin_link() const {
-  return pending_ ? pending_->link : std::string();
+  return pending_ && !pending_->adds_scopes ? pending_->link : std::string();
+}
+
+std::string PubkySessionService::scope_approval_link() const {
+  return pending_ && pending_->adds_scopes ? pending_->link : std::string();
+}
+
+std::vector<Capability> PubkySessionService::pending_scope_capabilities()
+    const {
+  return pending_ && pending_->adds_scopes ? pending_->request.capabilities
+                                           : std::vector<Capability>();
 }
 
 std::optional<Key> PubkySessionService::user() const {
@@ -314,7 +447,14 @@ std::optional<Key> PubkySessionService::homeserver() const {
 }
 
 std::vector<Capability> PubkySessionService::capabilities() const {
-  return session_ ? session_->capabilities : std::vector<Capability>();
+  if (!session_) {
+    return {};
+  }
+  std::vector<Capability> all = session_->capabilities;
+  for (const ScopeGrant& grant : session_->scope_grants) {
+    all.insert(all.end(), grant.capabilities.begin(), grant.capabilities.end());
+  }
+  return all;
 }
 
 std::optional<std::string> PubkySessionService::display_name() const {
@@ -334,11 +474,40 @@ void PubkySessionService::StartSignIn(SignInCallback callback) {
         base::BindOnce(std::move(callback), SignInResult::kCancelled));
     return;
   }
+  // A scope approval left over from the expired session gives way.
+  if (pending_) {
+    FinishSignIn(SignInResult::kCancelled);
+  }
   last_sign_in_result_.reset();
+  StartApproval(*ParseCapabilities(kSignInCapabilities), /*adds_scopes=*/false,
+                std::move(callback));
+}
+
+void PubkySessionService::RequestScopes(std::vector<Capability> capabilities,
+                                        SignInCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  const bool asks_for_keys =
+      std::ranges::any_of(capabilities, &Capability::encryption_keys);
+  if (state_ != State::kSignedIn || pending_ || capabilities.empty() ||
+      asks_for_keys) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback), SignInResult::kCancelled));
+    return;
+  }
+  StartApproval(std::move(capabilities), /*adds_scopes=*/true,
+                std::move(callback));
+}
+
+void PubkySessionService::StartApproval(std::vector<Capability> capabilities,
+                                        bool adds_scopes,
+                                        SignInCallback callback) {
   pending_ = std::make_unique<PendingSignIn>();
+  pending_->adds_scopes = adds_scopes;
   pending_->previous_state = state_;
-  pending_->client_seed = RandomKey();
-  pending_->request.capabilities = *ParseCapabilities(kSignInCapabilities);
+  // Scope grants are bound to the session's existing proof-of-possession key.
+  pending_->client_seed = adds_scopes ? session_->client_seed : RandomKey();
+  pending_->request.capabilities = std::move(capabilities);
   pending_->request.relay = config_.relay_inbox;
   pending_->request.client_public_key = Ed25519PublicKey(pending_->client_seed);
   pending_->request.format = ApprovalFormat::kBareGrant;
@@ -346,7 +515,8 @@ void PubkySessionService::StartSignIn(SignInCallback callback) {
   pending_->link = BuildSigninGrantLink(pending_->request);
   pending_->deadline = base::TimeTicks::Now() + config_.sign_in_timeout;
   pending_->callback = std::move(callback);
-  SetState(State::kWaitingForApproval);
+  // A scope approval keeps the signed-in state; observers still hear of it.
+  SetState(adds_scopes ? state_ : State::kWaitingForApproval);
   PollRelay();
 }
 
@@ -375,6 +545,7 @@ void PubkySessionService::SignOut() {
   DeleteStoredSession();
   SetState(State::kSignedOut);
   RunBearerCallbacks();
+  CancelScopeRefreshes();
 }
 
 void PubkySessionService::GetBearer(BearerCallback callback) {
@@ -435,6 +606,7 @@ void PubkySessionService::OnStoredDataRead(std::optional<std::string> data) {
     SetState(State::kSignedOut);
     return;
   }
+  RemoveExpiredScopeGrants();
   const base::Time grant_expires_at = base::Time::FromTimeT(
       static_cast<time_t>(session_->grant_expires_at));
   SetState(base::Time::Now() >= grant_expires_at ? State::kApprovalExpired
@@ -456,11 +628,13 @@ void PubkySessionService::PollRelay() {
     FinishSignIn(SignInResult::kTimedOut);
     return;
   }
-  loader_ = CreateLoader(GURL(RelayChannelUrl(pending_->request)), "GET",
-                         kRelayTrafficAnnotation);
-  loader_->SetAllowHttpErrorResults(true);
-  loader_->SetTimeoutDuration(std::min(config_.relay_poll_timeout, remaining));
-  loader_->DownloadToString(
+  network::SimpleURLLoader* loader =
+      (pending_->loader = CreateLoader(GURL(RelayChannelUrl(pending_->request)),
+                                       "GET", kRelayTrafficAnnotation))
+          .get();
+  loader->SetAllowHttpErrorResults(true);
+  loader->SetTimeoutDuration(std::min(config_.relay_poll_timeout, remaining));
+  loader->DownloadToString(
       url_loader_factory_.get(),
       base::BindOnce(&PubkySessionService::OnRelayResponse,
                      weak_factory_.GetWeakPtr()),
@@ -468,9 +642,9 @@ void PubkySessionService::PollRelay() {
 }
 
 void PubkySessionService::OnRelayResponse(std::optional<std::string> body) {
-  const int status = ResponseCode(*loader_);
-  const int net_error = loader_->NetError();
-  loader_.reset();
+  const int status = ResponseCode(*pending_->loader);
+  const int net_error = pending_->loader->NetError();
+  pending_->loader.reset();
 
   if (status == net::HTTP_OK && body) {
     AcknowledgeRelay(RelayChannelUrl(pending_->request));
@@ -481,6 +655,16 @@ void PubkySessionService::OnRelayResponse(std::optional<std::string> body) {
       return;
     }
     pending_->approval = std::move(approval.value());
+    if (pending_->adds_scopes) {
+      // A scope grant extends this session, so it must come from this user.
+      if (pending_->approval->claims.issuer != session_->user) {
+        FinishSignIn(SignInResult::kRejected);
+        return;
+      }
+      pending_->homeserver = session_->homeserver;
+      ExchangeGrant();
+      return;
+    }
     FetchHomeserverRecord();
     return;
   }
@@ -498,9 +682,9 @@ void PubkySessionService::RetryRelayAfterError() {
     FinishSignIn(SignInResult::kNetworkError);
     return;
   }
-  retry_timer_.Start(FROM_HERE, kRelayRetryDelay,
-                     base::BindOnce(&PubkySessionService::PollRelay,
-                                    base::Unretained(this)));
+  pending_->retry_timer.Start(FROM_HERE, kRelayRetryDelay,
+                              base::BindOnce(&PubkySessionService::PollRelay,
+                                             base::Unretained(this)));
 }
 
 void PubkySessionService::AcknowledgeRelay(const std::string& channel_url) {
@@ -519,9 +703,9 @@ void PubkySessionService::FetchHomeserverRecord() {
     url.push_back('/');
   }
   url.append(EncodeZ32(pending_->approval->claims.issuer));
-  loader_ = CreateLoader(GURL(url), "GET", kPkarrTrafficAnnotation);
-  loader_->SetTimeoutDuration(kRequestTimeout);
-  loader_->DownloadToString(
+  pending_->loader = CreateLoader(GURL(url), "GET", kPkarrTrafficAnnotation);
+  pending_->loader->SetTimeoutDuration(kRequestTimeout);
+  pending_->loader->DownloadToString(
       url_loader_factory_.get(),
       base::BindOnce(&PubkySessionService::OnHomeserverRecord,
                      weak_factory_.GetWeakPtr()),
@@ -529,7 +713,7 @@ void PubkySessionService::FetchHomeserverRecord() {
 }
 
 void PubkySessionService::OnHomeserverRecord(std::optional<std::string> body) {
-  loader_.reset();
+  pending_->loader.reset();
   const Key& user = pending_->approval->claims.issuer;
   std::optional<SignedPacket> packet =
       body ? VerifyRelayPayload(user, *body) : std::nullopt;
@@ -546,16 +730,18 @@ void PubkySessionService::OnHomeserverRecord(std::optional<std::string> body) {
 
 void PubkySessionService::ExchangeGrant() {
   const GrantApproval& approval = *pending_->approval;
-  loader_ = CreateLoader(GrantSessionUrl(pending_->homeserver), "POST",
-                         kHomeserverTrafficAnnotation);
-  loader_->AttachStringForUpload(
+  network::SimpleURLLoader* loader =
+      (pending_->loader = CreateLoader(GrantSessionUrl(pending_->homeserver),
+                                       "POST", kHomeserverTrafficAnnotation))
+          .get();
+  loader->AttachStringForUpload(
       CreateGrantSessionRequestBody(
           approval.grant_jws,
           CreatePopProof(pending_->client_seed, pending_->homeserver,
                          approval.claims.grant_id, base::Time::Now())),
       "application/json");
-  loader_->SetTimeoutDuration(kRequestTimeout);
-  loader_->DownloadToString(
+  loader->SetTimeoutDuration(kRequestTimeout);
+  loader->DownloadToString(
       url_loader_factory_.get(),
       base::BindOnce(&PubkySessionService::OnExchangeResponse,
                      weak_factory_.GetWeakPtr()),
@@ -563,7 +749,7 @@ void PubkySessionService::ExchangeGrant() {
 }
 
 void PubkySessionService::OnExchangeResponse(std::optional<std::string> body) {
-  loader_.reset();
+  pending_->loader.reset();
   std::optional<GrantSession> response =
       body ? ParseGrantSessionResponse(*body) : std::nullopt;
   GrantApproval& approval = *pending_->approval;
@@ -571,6 +757,19 @@ void PubkySessionService::OnExchangeResponse(std::optional<std::string> body) {
       response->homeserver != pending_->homeserver ||
       response->grant_id != approval.claims.grant_id) {
     FinishSignIn(SignInResult::kExchangeFailed);
+    return;
+  }
+  if (pending_->adds_scopes) {
+    ScopeGrant grant;
+    grant.grant_jws = approval.grant_jws;
+    grant.grant_id = approval.claims.grant_id;
+    grant.capabilities = response->capabilities;
+    grant.bearer = response->token;
+    grant.token_expires_at = response->token_expires_at;
+    grant.grant_expires_at = response->grant_expires_at;
+    session_->scope_grants.push_back(std::move(grant));
+    Persist();
+    FinishSignIn(SignInResult::kSignedIn);
     return;
   }
   StoredSession session;
@@ -590,18 +789,21 @@ void PubkySessionService::OnExchangeResponse(std::optional<std::string> body) {
 }
 
 void PubkySessionService::FinishSignIn(SignInResult result) {
-  retry_timer_.Stop();
-  loader_.reset();
   SignInCallback callback = std::move(pending_->callback);
   const State previous_state = pending_->previous_state;
+  const bool adds_scopes = pending_->adds_scopes;
   pending_.reset();
-  last_sign_in_result_ = result;
-  if (result == SignInResult::kSignedIn) {
-    SetState(State::kSignedIn);
-    ScheduleRefresh();
-    FetchProfile();
+  if (adds_scopes) {
+    SetState(state_);
   } else {
-    SetState(previous_state);
+    last_sign_in_result_ = result;
+    if (result == SignInResult::kSignedIn) {
+      SetState(State::kSignedIn);
+      ScheduleRefresh();
+      FetchProfile();
+    } else {
+      SetState(previous_state);
+    }
   }
   std::move(callback).Run(result);
 }
@@ -697,6 +899,206 @@ void PubkySessionService::RunBearerCallbacks() {
   }
 }
 
+void PubkySessionService::GetBearerFor(const Capability& needed,
+                                       BearerCallback callback) {
+  if (!session_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  if (CapabilitiesCover(session_->capabilities, needed)) {
+    GetBearer(std::move(callback));
+    return;
+  }
+  RemoveExpiredScopeGrants();
+  for (const ScopeGrant& grant : session_->scope_grants) {
+    if (!CapabilitiesCover(grant.capabilities, needed)) {
+      continue;
+    }
+    const base::Time expires_at =
+        base::Time::FromTimeT(static_cast<time_t>(grant.token_expires_at));
+    if (base::Time::Now() + config_.refresh_margin < expires_at) {
+      std::move(callback).Run(grant.bearer);
+      return;
+    }
+    RefreshScopeGrant(grant.grant_id, std::move(callback));
+    return;
+  }
+  std::move(callback).Run(std::nullopt);
+}
+
+ScopeGrant* PubkySessionService::FindScopeGrant(const std::string& grant_id) {
+  if (!session_) {
+    return nullptr;
+  }
+  auto it = std::ranges::find(session_->scope_grants, grant_id,
+                              &ScopeGrant::grant_id);
+  return it == session_->scope_grants.end() ? nullptr : &*it;
+}
+
+void PubkySessionService::RemoveExpiredScopeGrants() {
+  if (std::erase_if(session_->scope_grants, [](const ScopeGrant& grant) {
+        return IsExpired(grant.grant_expires_at);
+      })) {
+    Persist();
+  }
+}
+
+void PubkySessionService::RefreshScopeGrant(const std::string& grant_id,
+                                            BearerCallback callback) {
+  ScopeRefresh& refresh = scope_refreshes_[grant_id];
+  refresh.callbacks.push_back(std::move(callback));
+  if (refresh.loader) {
+    return;
+  }
+  const ScopeGrant& grant = *FindScopeGrant(grant_id);
+  refresh.loader = CreateLoader(GrantSessionUrl(session_->homeserver), "POST",
+                                kHomeserverTrafficAnnotation);
+  refresh.loader->SetAllowHttpErrorResults(true);
+  refresh.loader->AttachStringForUpload(
+      CreateGrantSessionRequestBody(
+          grant.grant_jws,
+          CreatePopProof(session_->client_seed, session_->homeserver,
+                         grant.grant_id, base::Time::Now())),
+      "application/json");
+  refresh.loader->SetTimeoutDuration(kRequestTimeout);
+  refresh.loader->DownloadToString(
+      url_loader_factory_.get(),
+      base::BindOnce(&PubkySessionService::OnScopeRefreshResponse,
+                     weak_factory_.GetWeakPtr(), grant_id),
+      kMaxSessionResponseSize);
+}
+
+void PubkySessionService::OnScopeRefreshResponse(
+    const std::string& grant_id,
+    std::optional<std::string> body) {
+  auto it = scope_refreshes_.find(grant_id);
+  const int status = ResponseCode(*it->second.loader);
+  std::vector<BearerCallback> callbacks = std::move(it->second.callbacks);
+  scope_refreshes_.erase(it);
+
+  std::optional<GrantSession> response =
+      status >= 200 && status < 300 && body ? ParseGrantSessionResponse(*body)
+                                            : std::nullopt;
+  std::optional<std::string> bearer;
+  if (ScopeGrant* grant = FindScopeGrant(grant_id)) {
+    if (response && response->grant_id == grant_id) {
+      grant->bearer = response->token;
+      grant->token_expires_at = response->token_expires_at;
+      grant->grant_expires_at = response->grant_expires_at;
+      Persist();
+      bearer = grant->bearer;
+    } else if (status == net::HTTP_UNAUTHORIZED ||
+               status == net::HTTP_FORBIDDEN) {
+      // Revoked or expired on the homeserver: the scope needs a new approval.
+      std::erase_if(session_->scope_grants, [&](const ScopeGrant& entry) {
+        return entry.grant_id == grant_id;
+      });
+      Persist();
+      SetState(state_);
+    } else if (!IsExpired(grant->token_expires_at)) {
+      bearer = grant->bearer;
+    }
+  }
+  for (BearerCallback& callback : callbacks) {
+    std::move(callback).Run(bearer);
+  }
+}
+
+void PubkySessionService::CancelScopeRefreshes() {
+  std::map<std::string, ScopeRefresh> refreshes;
+  refreshes.swap(scope_refreshes_);
+  for (auto& [grant_id, refresh] : refreshes) {
+    for (BearerCallback& callback : refresh.callbacks) {
+      std::move(callback).Run(std::nullopt);
+    }
+  }
+}
+
+void PubkySessionService::SendStorageRequest(StorageRequest request,
+                                             StorageCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  Capability needed;
+  needed.scope = request.path;
+  needed.read = !IsWrite(request.method);
+  needed.write = IsWrite(request.method);
+  GetBearerFor(needed,
+               base::BindOnce(&PubkySessionService::StartStorageRequest,
+                              weak_factory_.GetWeakPtr(), std::move(request),
+                              std::move(callback)));
+}
+
+void PubkySessionService::StartStorageRequest(
+    StorageRequest request,
+    StorageCallback callback,
+    std::optional<std::string> bearer) {
+  StorageResponse failure;
+  failure.status = StorageStatus::kNotSignedIn;
+  // Public data is readable without a bearer, so reads keep working while the
+  // approval is expired.
+  const bool public_read =
+      !IsWrite(request.method) && request.path.starts_with("/pub/");
+  if (!session_ || (!bearer && !public_read)) {
+    std::move(callback).Run(std::move(failure));
+    return;
+  }
+  if (request.body.size() > kMaxStorageBodySize) {
+    failure.status = StorageStatus::kTooLarge;
+    std::move(callback).Run(std::move(failure));
+    return;
+  }
+  std::unique_ptr<network::SimpleURLLoader> loader = CreateLoader(
+      StorageUrl(session_->homeserver, session_->user, request),
+      HttpMethod(request.method), kStorageTrafficAnnotation,
+      bearer ? &*bearer : nullptr);
+  if (request.method == StorageMethod::kPut) {
+    loader->AttachStringForUpload(request.body,
+                                  request.content_type.empty()
+                                      ? "application/octet-stream"
+                                      : request.content_type);
+  }
+  loader->SetAllowHttpErrorResults(true);
+  loader->SetTimeoutDuration(kRequestTimeout);
+  const int loader_id = next_storage_loader_id_++;
+  network::SimpleURLLoader* raw = loader.get();
+  storage_loaders_[loader_id] = std::move(loader);
+  raw->DownloadToString(
+      url_loader_factory_.get(),
+      base::BindOnce(&PubkySessionService::OnStorageResponse,
+                     weak_factory_.GetWeakPtr(), loader_id,
+                     std::move(callback)),
+      kMaxStorageBodySize);
+}
+
+void PubkySessionService::OnStorageResponse(int loader_id,
+                                            StorageCallback callback,
+                                            std::optional<std::string> body) {
+  std::unique_ptr<network::SimpleURLLoader> loader =
+      std::move(storage_loaders_[loader_id]);
+  storage_loaders_.erase(loader_id);
+  const int status = ResponseCode(*loader);
+
+  StorageResponse response;
+  if (loader->NetError() == net::ERR_INSUFFICIENT_RESOURCES) {
+    response.status = StorageStatus::kTooLarge;
+  } else if (status >= 200 && status < 300 && body) {
+    response.status = StorageStatus::kOk;
+    response.body = std::move(*body);
+    const network::mojom::URLResponseHead* head = loader->ResponseInfo();
+    response.content_type = head->mime_type;
+    if (!head->charset.empty()) {
+      response.content_type += "; charset=" + head->charset;
+    }
+  } else if (status == net::HTTP_NOT_FOUND) {
+    response.status = StorageStatus::kNotFound;
+  } else if (status == net::HTTP_UNAUTHORIZED ||
+             status == net::HTTP_FORBIDDEN) {
+    response.status = StorageStatus::kForbidden;
+  } else {
+    response.status = StorageStatus::kNetworkError;
+  }
+  std::move(callback).Run(std::move(response));
+}
+
 void PubkySessionService::FetchProfile() {
   if (!session_) {
     return;
@@ -746,16 +1148,23 @@ void PubkySessionService::DeleteStoredSession() {
 
 void PubkySessionService::SendLogout(
     scoped_refptr<network::SharedURLLoaderFactory> factory) {
-  std::unique_ptr<network::SimpleURLLoader> loader =
-      CreateLoader(GrantSessionUrl(session_->homeserver), "DELETE",
-                   kHomeserverTrafficAnnotation);
-  loader->AttachStringForUpload(
-      CreateGrantSessionRequestBody(
-          session_->grant_jws,
-          CreatePopProof(session_->client_seed, session_->homeserver,
-                         session_->grant_id, base::Time::Now())),
-      "application/json");
-  SendDetached(factory.get(), std::move(loader));
+  std::vector<std::pair<std::string, std::string>> grants = {
+      {session_->grant_jws, session_->grant_id}};
+  for (const ScopeGrant& grant : session_->scope_grants) {
+    grants.emplace_back(grant.grant_jws, grant.grant_id);
+  }
+  for (const auto& [grant_jws, grant_id] : grants) {
+    std::unique_ptr<network::SimpleURLLoader> loader =
+        CreateLoader(GrantSessionUrl(session_->homeserver), "DELETE",
+                     kHomeserverTrafficAnnotation);
+    loader->AttachStringForUpload(
+        CreateGrantSessionRequestBody(
+            grant_jws, CreatePopProof(session_->client_seed,
+                                      session_->homeserver, grant_id,
+                                      base::Time::Now())),
+        "application/json");
+    SendDetached(factory.get(), std::move(loader));
+  }
 }
 
 }  // namespace pubky_session

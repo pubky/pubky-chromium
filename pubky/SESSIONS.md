@@ -43,10 +43,16 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   remembered for that site until revoked.
 - **Escalation.** A request for scopes beyond those already allowed prompts
   again for the difference.
-- **Private storage and keys.** A request for `/priv/` paths or the `e` action
-  needs a new Ring approval for that scope only, added to the browser's
-  approval. The prompt warns that encryption keys are permanent: revoking does
+- **Private storage.** A request for `/priv/` paths, or any scope outside the
+  browser's approval, needs a new Ring approval for that scope only. The
+  browser holds the result as a separate grant next to the sign-in grant and
+  uses whichever grant covers a path.
+- **Encryption keys.** Deferred. A request with the `e` action fails with
+  `NotSupportedError` until the key API is decided, because keys must not
+  reach the page and pubky-core leaves the content encryption format to each
+  app. When it comes, the prompt warns that keys are permanent: revoking does
   not take them back, and a key for a directory covers everything below it.
+  Decided in #71.
 - **Revocation.** Page info and settings list each site's access and remove it
   at once. A removed site's next call fails.
 - **Scripts on an approved site.** Any script on an allowed origin can use that
@@ -54,6 +60,9 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   instant revocation; there is no per-request confirmation.
 - **Eligible origins.** Secure contexts only: HTTPS sites, key hosts and
   `http://localhost`. Workers and opaque origins get no access.
+- **Frames.** The top-level document and same-origin iframes: the document's
+  origin must match every ancestor's. A cross-origin embed, or a frame below
+  one, gets `NotAllowedError`. Decided in #71.
 
 ## Identities
 
@@ -85,6 +94,18 @@ Decided with the owner in October 2026 while starting
 - **Sign-in format.** Sign-in asks for a bare grant, which every Ring release
   with grants supports; signed approvals (HPKE) are used only when a site asks
   for encryption keys.
+- **Site API surface.** `requestSession(scopes)` resolves to a `PubkySession`
+  with `publicKey`, `get(path)` (a `Response`), `put(path, bytes,
+  contentType)`, `delete(path)` and `list(dir, {limit, cursor, shallow,
+  reverse})` (`pubky://` URLs). Paths are canonical storage paths; anything
+  else is a `TypeError`. Refusals are `NotAllowedError`, a signed-out or
+  expired browser is `InvalidStateError`. Calls use path addressing,
+  `/storage/<user>/<path>`, on the user's homeserver. Public reads work
+  without a bearer, so they continue while the approval is expired.
+- **Site records.** Each site's scopes live in the `PUBKY_SITE_ACCESS` website
+  setting with the identity's key and the date of the first grant. A record
+  for another key does not count, so a different identity starts over.
+  Clearing site settings removes them.
 
 ## Lifetime
 

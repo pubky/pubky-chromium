@@ -1,0 +1,61 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module blink.mojom;
+
+import "mojo/public/mojom/base/big_buffer.mojom";
+
+// The outcome of a navigator.pubky call. The renderer turns everything but
+// kOk into a rejected promise.
+enum PubkyStatus {
+  kOk,
+  // The user declined, the origin has no access to the path, or the frame may
+  // not use Pubky. NotAllowedError.
+  kNotAllowed,
+  // NotFoundError.
+  kNotFound,
+  // A malformed or non-canonical path or capability. TypeError.
+  kInvalidArgument,
+  // The `e` action, which is not supported yet. NotSupportedError.
+  kNotSupported,
+  // Signed out, or the browser's approval expired. InvalidStateError.
+  kNotSignedIn,
+  // The file is larger than the browser passes. QuotaExceededError.
+  kTooLarge,
+  // The homeserver could not be reached or failed. NetworkError.
+  kNetworkError,
+};
+
+struct PubkyListOptions {
+  // Zero leaves the limit to the homeserver.
+  uint16 limit;
+  // A pubky:// URL from a previous listing; empty to start at the beginning.
+  string cursor;
+  bool shallow;
+  bool reverse;
+};
+
+// The browser side of navigator.pubky for one document. The browser holds
+// the identity's grant and bearer and checks every path against the scopes
+// the user allowed for the document's origin; none of it reaches the
+// renderer. See pubky/SESSIONS.md.
+interface PubkySessionHost {
+  // Asks for `scopes`, capability strings such as "/pub/example.com/:rw".
+  // Opens sign-in when the browser is signed out, and asks the user for
+  // scopes the origin was not allowed yet. On kOk, `public_key` is the
+  // identity's z-base-32 key.
+  RequestSession(array<string> scopes)
+      => (PubkyStatus status, string public_key);
+
+  // Paths are canonical storage paths such as "/pub/example.com/data.json".
+  Get(string path)
+      => (PubkyStatus status, string content_type,
+          mojo_base.mojom.BigBuffer? body);
+  Put(string path, mojo_base.mojom.BigBuffer body, string content_type)
+      => (PubkyStatus status);
+  Delete(string path) => (PubkyStatus status);
+  // `path` is a directory, ending in '/'. Entries are pubky:// URLs.
+  List(string path, PubkyListOptions options)
+      => (PubkyStatus status, array<string> entries);
+};

@@ -16,11 +16,11 @@
       <pubky:channel>experimental</pubky:channel>
       <pubky:issued_at>2026-10-17T17:41:33Z</pubky:issued_at>
       <pubky:expires_at>2027-04-15T17:41:33Z</pubky:expires_at>
-      <enclosure url="https://github.com/pubky/pubky-chromium/releases/download/pubky-macos-156.0.8073.4/pubky-chromium-156.0.8073.4-macos-arm64.zip" length="230762780" type="application/octet-stream" sparkle:edSignature="LDxdKb0sp+HBuSdsZLpYqL7WlKMnPrSbw695ZDTvHd19QvXlBY5ojqhW6fWWv6+Blmfpro1wpVl0+JEkusljCw=="/>
+      <enclosure url="https://github.com/pubky/pubky-chromium/releases/download/pubky-macos-156.0.8073.4/pubky-chromium-156.0.8073.4-macos-arm64.zip" length="230749159" type="application/octet-stream" sparkle:edSignature="9JnhgpR10Wdxbt25KWhbxsLcmrvxTrJNrb6ETQdQxHPNAmrDIlyBVb7pfMo9kFUoabQkP/NnnKTSkPGYlL2cBQ=="/>
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: K/H+5S1kU9K68AzpV7YpKQzKfyD8YM1z2Cdzvtq1kp6c5VFX2M0NQa7nXzuNoBP4WvE09CQbaefZcbIj9BzHCA==
+edSignature: cM/fXULTAy/lnGb+4c1dIHZ+MuXA781TLPHk0Ygm1DM4XEbQdn+Y8W0DxBLy98z3b8Fvr01zHFc0flHH7PeHCQ==
 length: 1372
 -->

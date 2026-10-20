@@ -2829,6 +2829,8 @@ generated_interface_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_presentation_receiver.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_presentation_request.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_presentation_request.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_pubky_capabilities.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_pubky_capabilities.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_pubky_session.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_pubky_session.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_private_aggregation.cc",

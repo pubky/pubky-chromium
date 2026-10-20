@@ -48,6 +48,7 @@
 
 class ActorTaskListBubble;
 class AvatarToolbarButton;
+class PubkyIdentityButton;
 class AvatarToolbarButtonInterface;
 class BatterySaverButton;
 class BrowserAppMenuButton;
@@ -342,6 +343,9 @@ class ToolbarView : public views::AccessiblePaneView,
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
   AvatarToolbarButtonInterface* GetAvatarToolbarButtonInterface() override;
   ToolbarButton* GetBackButton() override;
+  PubkyIdentityButton* pubky_identity_button() {
+    return pubky_identity_button_;
+  }
   ReloadControl* GetReloadButton() override;
   ToolbarButton* GetDownloadButton() override;
 
@@ -431,6 +435,8 @@ class ToolbarView : public views::AccessiblePaneView,
   // `toolbar_webview_->GetPinnedActionsContainer()`.
   raw_ptr<PinnedToolbarActions> pinned_toolbar_actions_ = nullptr;
   raw_ptr<AvatarToolbarButton> avatar_ = nullptr;
+  // Replaces `avatar_`, which stays in the view tree but hidden.
+  raw_ptr<PubkyIdentityButton> pubky_identity_button_ = nullptr;
   raw_ptr<MediaToolbarButton> media_button_ = nullptr;
   raw_ptr<BrowserAppMenuButton> app_menu_button_ = nullptr;
 

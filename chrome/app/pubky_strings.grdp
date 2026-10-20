@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for Pubky identity in the browser. See pubky/SESSIONS.md. -->
+<grit-part>
+  <message name="IDS_PUBKY_IDENTITY_BUTTON_SIGN_IN" desc="Label of the toolbar identity button while no Pubky identity is signed in to the browser.">
+    Sign in
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_BUTTON_WAITING" desc="Label of the toolbar identity button while the browser waits for the user to approve the sign-in in the Pubky Ring app.">
+    Approve in Ring
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_BUTTON_APPROVE_AGAIN" desc="Label of the toolbar identity button when the browser's Pubky approval expired and the user must approve again.">
+    Approve again
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_BUTTON_INCOGNITO" desc="Label of the toolbar identity button in an Incognito window that is not signed in.">
+    Incognito
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_BUTTON_ACCESSIBLE_NAME" desc="Accessible name of the toolbar button that shows the Pubky identity and opens its panel.">
+    Pubky identity
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_LOADING" desc="Shown in the identity panel while the stored sign-in is read.">
+    Loading…
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_TITLE" desc="Title of the panel for signing in to the browser with a Pubky identity.">
+    Sign in to Pubky Browser
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_BODY" desc="Explains how to sign in to the browser by scanning a QR code with the Pubky Ring app.">
+    Scan with Pubky Ring to approve this browser. Sites you allow can then use your identity without their own sign-in.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_SCOPE" desc="States what the browser can do once the user approves it: read and write the user's public Pubky data. '/pub/' is a storage path and must not be translated.">
+    Read and write your public data, /pub/. You choose which sites use it.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_QR_ACCESSIBLE_NAME" desc="Accessible name of the QR code image to scan with Pubky Ring.">
+    Sign-in QR code for Pubky Ring
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_WAITING" desc="Shown under the QR code while the browser waits for the approval.">
+    Waiting for approval…
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_OR" desc="Separates signing in with Pubky Ring from signing in with Passport.">
+    or
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_PASSPORT" desc="Button that opens Pubky Passport, a web signer, to approve the browser instead of Pubky Ring.">
+    Continue with Passport
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_GET_RING" desc="Link to download the Pubky Ring app.">
+    No Pubky Ring yet? Get the app
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_CANCEL" desc="Button that stops waiting for the sign-in approval.">
+    Cancel
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_IN_TRY_AGAIN" desc="Button that starts a new sign-in after one failed.">
+    Try again
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ERROR_TIMED_OUT" desc="Error after the sign-in link expired before the user approved it.">
+    The sign-in link expired.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ERROR_REJECTED" desc="Error when the approval received does not belong to this sign-in.">
+    The approval didn't match this browser.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ERROR_HOMESERVER" desc="Error when the browser cannot find where the user's Pubky data is stored.">
+    Couldn't find your homeserver. Check that your identity is published.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ERROR_EXCHANGE" desc="Error when the user's homeserver refuses the approval.">
+    Your homeserver didn't accept the approval.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ERROR_NETWORK" desc="Error when the browser cannot reach the sign-in relay.">
+    Couldn't reach the sign-in relay. Check your connection.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_HOMESERVER" desc="Label before the shortened public key of the user's homeserver.">
+    Homeserver
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_COPY_KEY" desc="Accessible name of the button that copies the user's Pubky public key.">
+    Copy key
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_IDENTITIES" desc="Heading of the list of Pubky identities, one per browser profile.">
+    Identities
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_THIS_WINDOW" desc="Describes the identity used by the current window.">
+    This window
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_OPENS_WINDOW" desc="Describes another identity, which opens in its own window.">
+    Opens its own window
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_ADD" desc="Button that adds a new Pubky identity as a new browser profile.">
+    Add identity
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_NEW_PROFILE_NAME" desc="Default name of the browser profile created for a new Pubky identity.">
+    Pubky identity
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_OUT" desc="Button that signs the browser out of the Pubky identity and revokes its approval.">
+    Sign out of this browser
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_EXPIRED_TITLE" desc="Banner when the browser's Pubky approval expired.">
+    Your approval expired
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_EXPIRED_BODY" desc="Explains what an expired approval means for sites.">
+    Sites can still read public data, but they can't save changes until you approve this browser again.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_APPROVE_AGAIN" desc="Button that starts a new approval with Pubky Ring after the old one expired.">
+    Approve again with Pubky Ring
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_SIGN_OUT_SHORT" desc="Short button that signs the browser out of the Pubky identity.">
+    Sign out
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_INCOGNITO_TITLE" desc="Title of the identity panel in an Incognito window that is not signed in.">
+    You're signed out in Incognito
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_INCOGNITO_BODY" desc="Explains that a sign-in in Incognito lasts only for the window.">
+    Sign in here only for this window. When you close it, the approval ends and the browser's grant for it is revoked.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_INCOGNITO_SIGN_IN" desc="Button that signs in to Pubky for the current Incognito window only.">
+    Sign in for this window
+  </message>
+</grit-part>

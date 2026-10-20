@@ -95,6 +95,12 @@ class PubkySessionServiceTest : public testing::Test {
     return service;
   }
 
+  std::string ProfileUrl() const {
+    return GURL("https://" + EncodeZ32(homeserver_) + "/storage/" +
+                EncodeZ32(user_) + "/pub/pubky.app/profile.json")
+        .spec();
+  }
+
   std::string SessionUrl() const {
     return GURL("https://" + EncodeZ32(homeserver_) + kGrantSessionPath)
         .spec();
@@ -214,8 +220,29 @@ TEST_F(PubkySessionServiceTest, SignsInThroughRelayPkarrAndHomeserver) {
   EXPECT_TRUE(service->signin_link().empty());
   EXPECT_EQ(Bearer(*service), "bearer-1");
   EXPECT_FALSE(service->pending_request_for_testing());
+  EXPECT_EQ(service->last_sign_in_result(), Result::kSignedIn);
   // The grant was exchanged at the homeserver from the user's record.
   EXPECT_TRUE(SawRequest(requests_, "POST", SessionUrl()));
+}
+
+TEST_F(PubkySessionServiceTest, ReadsTheDisplayNameFromTheOwnProfile) {
+  std::unique_ptr<PubkySessionService> service = CreateService();
+  factory_.AddResponse(ProfileUrl(),
+                       "{\"name\":\"  Marcos\\u0007 \",\"bio\":\"hi\"}");
+  ASSERT_EQ(SignIn(*service), Result::kSignedIn);
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(service->display_name(), "Marcos");
+
+  service->SignOut();
+  EXPECT_FALSE(service->display_name());
+}
+
+TEST_F(PubkySessionServiceTest, KeepsNoDisplayNameWithoutAProfile) {
+  std::unique_ptr<PubkySessionService> service = CreateService();
+  factory_.AddResponse(ProfileUrl(), "", net::HTTP_NOT_FOUND);
+  ASSERT_EQ(SignIn(*service), Result::kSignedIn);
+  task_environment_.RunUntilIdle();
+  EXPECT_FALSE(service->display_name());
 }
 
 TEST_F(PubkySessionServiceTest, PersistsEncryptedAndRestores) {
@@ -275,6 +302,7 @@ TEST_F(PubkySessionServiceTest, RejectsAnApprovalForAnotherClient) {
   ServeApproval(*service, Ed25519PublicKey(Seed(9)));
   EXPECT_EQ(result.Get(), Result::kRejected);
   EXPECT_EQ(service->state(), State::kSignedOut);
+  EXPECT_EQ(service->last_sign_in_result(), Result::kRejected);
 }
 
 TEST_F(PubkySessionServiceTest, FallsBackToTheSecondPkarrRelay) {

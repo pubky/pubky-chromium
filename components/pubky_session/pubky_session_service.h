@@ -122,6 +122,13 @@ class PubkySessionService : public KeyedService {
   std::optional<Key> homeserver() const;
   std::vector<Capability> capabilities() const;
 
+  // The `name` from the user's own /pub/pubky.app/profile.json, read from
+  // their homeserver once signed in. Empty until it arrives or if unset.
+  std::optional<std::string> display_name() const;
+
+  // The outcome of the last sign-in attempt, cleared when a new one starts.
+  std::optional<SignInResult> last_sign_in_result() const;
+
   // Starts a sign-in for /pub/:rw. Allowed when signed out or when the
   // approval expired; `callback` runs once with the outcome.
   using SignInCallback = base::OnceCallback<void(SignInResult)>;
@@ -142,6 +149,9 @@ class PubkySessionService : public KeyedService {
   void RemoveObserver(Observer* observer);
 
   const SigninGrantRequest* pending_request_for_testing() const;
+  // Puts the service in the signed-in state without the network.
+  void SignInForTesting(StoredSession session,
+                        std::optional<std::string> display_name);
 
  private:
   struct PendingSignIn;
@@ -167,6 +177,10 @@ class PubkySessionService : public KeyedService {
   void OnRefreshResponse(std::optional<std::string> body);
   void RunBearerCallbacks();
 
+  // The user's own public profile, for the display name.
+  void FetchProfile();
+  void OnProfileResponse(std::optional<std::string> body);
+
   void Persist();
   void DeleteStoredSession();
   void SendLogout(scoped_refptr<network::SharedURLLoaderFactory> factory);
@@ -187,6 +201,9 @@ class PubkySessionService : public KeyedService {
   std::unique_ptr<PendingSignIn> pending_;
   // The one in-flight sign-in or refresh request.
   std::unique_ptr<network::SimpleURLLoader> loader_;
+  std::unique_ptr<network::SimpleURLLoader> profile_loader_;
+  std::optional<std::string> display_name_;
+  std::optional<SignInResult> last_sign_in_result_;
   bool refreshing_ = false;
   std::vector<BearerCallback> bearer_callbacks_;
   base::OneShotTimer refresh_timer_;

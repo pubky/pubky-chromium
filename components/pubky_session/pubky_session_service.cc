@@ -12,6 +12,9 @@
 #include "base/files/important_file_writer.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/json/json_reader.h"
+#include "base/strings/string_util.h"
+#include "base/values.h"
 #include "base/task/thread_pool.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/common/encryptor.h"
@@ -130,6 +133,64 @@ constexpr net::NetworkTrafficAnnotationTag kHomeserverTrafficAnnotation =
           "The user signed in explicitly; nothing is sent while signed out."
       })");
 
+constexpr net::NetworkTrafficAnnotationTag kProfileTrafficAnnotation =
+    net::DefineNetworkTrafficAnnotation("pubky_session_profile", R"(
+      semantics {
+        sender: "Pubky session"
+        description:
+          "Reads the signed-in user's own public profile, "
+          "/pub/pubky.app/profile.json, from their homeserver to show their "
+          "name on the identity button."
+        trigger: "Signing in, or starting the browser while signed in."
+        data: "The user's public key, as part of the request path."
+        user_data {
+          type: OTHER
+        }
+        destination: OTHER
+        destination_other: "The user's own Pubky homeserver."
+        internal {
+          contacts {
+            owners: "chrome/browser/OWNERS"
+          }
+        }
+        last_reviewed: "2026-10-20"
+      }
+      policy {
+        cookies_allowed: NO
+        setting: "Stops when the user signs out from the identity button."
+        policy_exception_justification:
+          "Reads only the signed-in user's own public data."
+      })");
+
+constexpr size_t kMaxProfileSize = 16 * 1024;
+constexpr size_t kMaxDisplayNameBytes = 64;
+
+// The `name` of a pubky.app profile, without control characters and cut to
+// a size the toolbar can show.
+std::optional<std::string> ParseProfileName(std::string_view json) {
+  std::optional<base::DictValue> profile =
+      base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
+  const std::string* name = profile ? profile->FindString("name") : nullptr;
+  if (!name) {
+    return std::nullopt;
+  }
+  std::string clean;
+  for (char c : *name) {
+    const unsigned char byte = static_cast<unsigned char>(c);
+    if (byte >= 0x20 && byte != 0x7F) {
+      clean.push_back(c);
+    }
+  }
+  std::string truncated;
+  base::TruncateUTF8ToByteSize(
+      std::string(base::TrimWhitespaceASCII(clean, base::TRIM_ALL)),
+      kMaxDisplayNameBytes, &truncated);
+  if (truncated.empty()) {
+    return std::nullopt;
+  }
+  return truncated;
+}
+
 std::unique_ptr<network::SimpleURLLoader> CreateLoader(
     const GURL& url,
     const std::string& method,
@@ -227,6 +288,7 @@ void PubkySessionService::Shutdown() {
   refresh_timer_.Stop();
   retry_timer_.Stop();
   loader_.reset();
+  profile_loader_.reset();
   pending_.reset();
   // An Incognito sign-in ends with its windows.
   if (storage_path_.empty() && session_ && shutdown_url_loader_factory_) {
@@ -255,6 +317,15 @@ std::vector<Capability> PubkySessionService::capabilities() const {
   return session_ ? session_->capabilities : std::vector<Capability>();
 }
 
+std::optional<std::string> PubkySessionService::display_name() const {
+  return display_name_;
+}
+
+std::optional<PubkySessionService::SignInResult>
+PubkySessionService::last_sign_in_result() const {
+  return last_sign_in_result_;
+}
+
 void PubkySessionService::StartSignIn(SignInCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (state_ != State::kSignedOut && state_ != State::kApprovalExpired) {
@@ -263,6 +334,7 @@ void PubkySessionService::StartSignIn(SignInCallback callback) {
         base::BindOnce(std::move(callback), SignInResult::kCancelled));
     return;
   }
+  last_sign_in_result_.reset();
   pending_ = std::make_unique<PendingSignIn>();
   pending_->previous_state = state_;
   pending_->client_seed = RandomKey();
@@ -292,6 +364,8 @@ void PubkySessionService::SignOut() {
   }
   refresh_timer_.Stop();
   loader_.reset();
+  profile_loader_.reset();
+  display_name_.reset();
   refreshing_ = false;
   if (session_) {
     // The PoP key is deleted below, so even an unrevoked grant is unusable.
@@ -332,6 +406,14 @@ const SigninGrantRequest* PubkySessionService::pending_request_for_testing()
   return pending_ ? &pending_->request : nullptr;
 }
 
+void PubkySessionService::SignInForTesting(
+    StoredSession session,
+    std::optional<std::string> display_name) {
+  session_ = std::move(session);
+  display_name_ = std::move(display_name);
+  SetState(State::kSignedIn);
+}
+
 void PubkySessionService::OnEncryptorReady(
     scoped_refptr<os_crypt_async::Encryptor> encryptor) {
   encryptor_ = std::move(encryptor);
@@ -358,6 +440,7 @@ void PubkySessionService::OnStoredDataRead(std::optional<std::string> data) {
   SetState(base::Time::Now() >= grant_expires_at ? State::kApprovalExpired
                                                  : State::kSignedIn);
   ScheduleRefresh();
+  FetchProfile();
 }
 
 void PubkySessionService::SetState(State state) {
@@ -512,9 +595,11 @@ void PubkySessionService::FinishSignIn(SignInResult result) {
   SignInCallback callback = std::move(pending_->callback);
   const State previous_state = pending_->previous_state;
   pending_.reset();
+  last_sign_in_result_ = result;
   if (result == SignInResult::kSignedIn) {
     SetState(State::kSignedIn);
     ScheduleRefresh();
+    FetchProfile();
   } else {
     SetState(previous_state);
   }
@@ -610,6 +695,32 @@ void PubkySessionService::RunBearerCallbacks() {
   for (BearerCallback& callback : callbacks) {
     std::move(callback).Run(bearer);
   }
+}
+
+void PubkySessionService::FetchProfile() {
+  if (!session_) {
+    return;
+  }
+  const GURL url("https://" + EncodeZ32(session_->homeserver) + "/storage/" +
+                 EncodeZ32(session_->user) + "/pub/pubky.app/profile.json");
+  profile_loader_ = CreateLoader(url, "GET", kProfileTrafficAnnotation);
+  profile_loader_->SetTimeoutDuration(kRequestTimeout);
+  profile_loader_->DownloadToString(
+      url_loader_factory_.get(),
+      base::BindOnce(&PubkySessionService::OnProfileResponse,
+                     weak_factory_.GetWeakPtr()),
+      kMaxProfileSize);
+}
+
+void PubkySessionService::OnProfileResponse(std::optional<std::string> body) {
+  profile_loader_.reset();
+  std::optional<std::string> name =
+      body ? ParseProfileName(*body) : std::nullopt;
+  if (name == display_name_) {
+    return;
+  }
+  display_name_ = std::move(name);
+  SetState(state_);
 }
 
 void PubkySessionService::Persist() {

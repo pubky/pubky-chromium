@@ -77,6 +77,14 @@ Decided with the owner in October 2026 while starting
   `//pubky/tools/session_vectors`.
 - **Storage.** The client key, grant and bearer live in a per-profile file
   encrypted with Chromium's OS-backed encryption, as cookies and passwords are.
+- **Finding the homeserver.** After approval the browser fetches the user's
+  signed PKARR packet from the pkarr relays (`pkarr.pubky.app`, then
+  `pkarr.pubky.org`), verifies its Ed25519 signature itself and reads the
+  `_pubky` record's target, as the SDK does. Relays can withhold the record
+  but cannot forge it. Decided in #69.
+- **Sign-in format.** Sign-in asks for a bare grant, which every Ring release
+  with grants supports; signed approvals (HPKE) are used only when a site asks
+  for encryption keys.
 
 ## Lifetime
 

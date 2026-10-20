@@ -128,6 +128,40 @@ fn main() {
     );
     let exchange_body = json!({ "grant": bare_jws, "pop": pop }).to_string();
 
+    // Signed PKARR packets as relays serve them, naming the user's homeserver.
+    use pubky::pkarr::dns::rdata::{SVCB, TXT};
+    use pubky::pkarr::{Keypair as PkarrKeypair, SignedPacket, Timestamp};
+    let pkarr_user = PkarrKeypair::from_secret_key(&[7; 32]);
+    let homeserver_z32 = homeserver.public_key().z32();
+    let homeserver_only = SignedPacket::builder()
+        .https(
+            "_pubky".try_into().unwrap(),
+            SVCB::new(0, homeserver_z32.as_str().try_into().unwrap()),
+            3600,
+        )
+        .timestamp(Timestamp::from(1_760_000_000_000_000))
+        .sign(&pkarr_user)
+        .unwrap();
+    let mut txt = TXT::new();
+    txt.add_string("hello=world").unwrap();
+    let mixed = SignedPacket::builder()
+        .txt("_note".try_into().unwrap(), txt, 300)
+        .address("www".try_into().unwrap(), "203.0.113.10".parse().unwrap(), 300)
+        .https(
+            "_pubky".try_into().unwrap(),
+            SVCB::new(0, homeserver_z32.as_str().try_into().unwrap()),
+            3600,
+        )
+        .https(".".try_into().unwrap(), SVCB::new(1, ".".try_into().unwrap()), 300)
+        .timestamp(Timestamp::from(1_760_000_000_000_001))
+        .sign(&pkarr_user)
+        .unwrap();
+    let no_pubky = SignedPacket::builder()
+        .address("www".try_into().unwrap(), "203.0.113.10".parse().unwrap(), 300)
+        .timestamp(Timestamp::from(1_760_000_000_000_002))
+        .sign(&pkarr_user)
+        .unwrap();
+
     // Session response.
     let response = GrantSessionResponse {
         token: "bearer-token-for-tests".into(),
@@ -208,6 +242,12 @@ fn main() {
             "iat": 1_760_000_123,
             "jws": pop,
             "exchange_body": exchange_body,
+        },
+        "pkarr": {
+            "homeserver_only_b64": STANDARD.encode(homeserver_only.to_relay_payload()),
+            "mixed_b64": STANDARD.encode(mixed.to_relay_payload()),
+            "no_pubky_b64": STANDARD.encode(no_pubky.to_relay_payload()),
+            "homeserver_only_timestamp": homeserver_only.timestamp().as_u64(),
         },
         "session_response": serde_json::to_value(&response).unwrap(),
         "covers": covers,

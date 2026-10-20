@@ -16,6 +16,8 @@ static_library("core") {
     "grant_session.h",
     "jws.cc",
     "jws.h",
+    "pkarr_packet.cc",
+    "pkarr_packet.h",
     "signin_link.cc",
     "signin_link.h",
   ]
@@ -35,6 +37,7 @@ source_set("unit_tests") {
     "crypto_unittest.cc",
     "grant_session_unittest.cc",
     "jws_unittest.cc",
+    "pkarr_packet_unittest.cc",
     "signin_link_unittest.cc",
     "test_vectors.cc",
     "test_vectors.h",

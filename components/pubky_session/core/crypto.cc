@@ -228,6 +228,25 @@ std::optional<std::string> OpenSecretBox(std::string_view message,
   return out;
 }
 
+std::string SealSecretBoxForTesting(std::string_view plaintext,
+                                    const Key& key) {
+  uint8_t nonce[kSecretBoxNonceSize];
+  CHECK(RAND_bytes(nonce, sizeof(nonce)));
+  std::vector<uint8_t> padded(crypto_secretbox_ZEROBYTES + plaintext.size(),
+                              0);
+  memcpy(padded.data() + crypto_secretbox_ZEROBYTES, plaintext.data(),
+         plaintext.size());
+  std::vector<uint8_t> sealed(padded.size(), 0);
+  CHECK_EQ(crypto_secretbox(sealed.data(), padded.data(), padded.size(), nonce,
+                            key.data()),
+           0);
+  std::string message(reinterpret_cast<const char*>(nonce), sizeof(nonce));
+  message.append(reinterpret_cast<const char*>(sealed.data()) +
+                     crypto_secretbox_BOXZEROBYTES,
+                 sealed.size() - crypto_secretbox_BOXZEROBYTES);
+  return message;
+}
+
 HpkeKeyPair GenerateHpkeKeyPair() {
   bssl::ScopedEVP_HPKE_KEY key;
   CHECK(EVP_HPKE_KEY_generate(key.get(), EVP_hpke_x25519_hkdf_sha256()));

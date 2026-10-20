@@ -55,6 +55,11 @@ std::string HpkeChannelId(const Key& recipient_public_key);
 std::optional<std::string> OpenSecretBox(std::string_view message,
                                          const Key& key);
 
+// For tests: seals `plaintext` the way the SDK's relay channel does, with a
+// random nonce.
+std::string SealSecretBoxForTesting(std::string_view plaintext,
+                                    const Key& key);
+
 // HPKE recipient keys (X25519-HKDF-SHA256).
 struct HpkeKeyPair {
   Key private_key;

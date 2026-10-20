@@ -1,0 +1,55 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+
+static_library("pubky_session") {
+  sources = [
+    "pubky_session_service.cc",
+    "pubky_session_service.h",
+    "session_store.cc",
+    "session_store.h",
+  ]
+  public_deps = [
+    "//base",
+    "//components/keyed_service/core",
+    "//components/pubky_session/core",
+    "//services/network/public/cpp",
+  ]
+  deps = [
+    "//components/os_crypt/async/browser",
+    "//components/os_crypt/async/common",
+    "//net",
+    "//services/network/public/mojom",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "pubky_session_service_unittest.cc",
+    "session_store_unittest.cc",
+  ]
+  deps = [
+    ":pubky_session",
+    "//base",
+    "//base/test:test_support",
+    "//components/os_crypt/async/browser",
+    "//components/os_crypt/async/browser:test_support",
+    "//components/pubky_session/core",
+    "//net",
+    "//services/network:test_support",
+    "//services/network/public/cpp",
+    "//testing/gtest",
+  ]
+}
+
+test("pubky_session_unittests") {
+  deps = [
+    ":unit_tests",
+    "//components/pubky_session/core:unit_tests",
+    "//mojo/core/test:run_all_unittests",
+  ]
+}

@@ -15,7 +15,7 @@ export function getHtml(this: SettingsPubkyPageElement) {
     <div class="cr-row first">
       <div class="cr-padded-text" id="unavailable">$i18n{pubkyUnavailable}</div>
     </div>
-  ` : !this.identity_.signedIn ? html`
+  ` : html`${!this.identity_.signedIn ? html`
     <div class="cr-row first">
       <div class="cr-padded-text" id="signedOut">$i18n{pubkySignedOut}</div>
     </div>
@@ -68,7 +68,7 @@ export function getHtml(this: SettingsPubkyPageElement) {
         $i18n{pubkySignOutButton}
       </cr-button>
     </div>
-  `}
+  `}`}
 </settings-section>
 <!--_html_template_end_-->`;
   // clang-format on

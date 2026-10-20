@@ -79,7 +79,7 @@ suite('PubkyPageTest', function() {
   }
 
   function query<T extends Element = HTMLElement>(selector: string): T|null {
-    return page.shadowRoot!.querySelector<T>(selector);
+    return page.shadowRoot.querySelector<T>(selector);
   }
 
   test('ExplainsWhenUnavailable', async function() {
@@ -97,24 +97,24 @@ suite('PubkyPageTest', function() {
 
   test('ShowsTheIdentityAndItsSites', async function() {
     await initPage(SIGNED_IN);
-    assertEquals('Marcos', query('#name')!.textContent!.trim());
-    assertEquals(SIGNED_IN.publicKey, query('#publicKey')!.textContent!.trim());
-    assertEquals(SIGNED_IN.approval, query('#approval')!.textContent!.trim());
-    assertEquals('M', query('.avatar')!.textContent!.trim());
+    assertEquals('Marcos', query('#name')!.textContent.trim());
+    assertEquals(SIGNED_IN.publicKey, query('#publicKey')!.textContent.trim());
+    assertEquals(SIGNED_IN.approval, query('#approval')!.textContent.trim());
+    assertEquals('M', query('.avatar')!.textContent.trim());
 
-    const rows = page.shadowRoot!.querySelectorAll('.site-row');
+    const rows = page.shadowRoot.querySelectorAll('.site-row');
     assertEquals(2, rows.length);
     assertEquals(
-        'pubky.app', rows[0]!.querySelector('.site')!.textContent!.trim());
+        'pubky.app', rows[0]!.querySelector('.site')!.textContent.trim());
     assertEquals(
         'Read and write /pub/pubky.app/',
-        rows[0]!.querySelector('.access')!.textContent!.trim());
+        rows[0]!.querySelector('.access')!.textContent.trim());
     assertFalse(!!query('#noSites'));
   });
 
   test('RemovesASite', async function() {
     await initPage(SIGNED_IN);
-    const rows = page.shadowRoot!.querySelectorAll('.site-row');
+    const rows = page.shadowRoot.querySelectorAll('.site-row');
     rows[1]!.querySelector<HTMLElement>('.remove')!.click();
     assertEquals(
         'https://shop.pubky.app',
@@ -126,7 +126,7 @@ suite('PubkyPageTest', function() {
     webUIListenerCallback(
         'pubky-identity-changed', {...SIGNED_IN, sites: []});
     await microtasksFinished();
-    assertEquals(0, page.shadowRoot!.querySelectorAll('.site-row').length);
+    assertEquals(0, page.shadowRoot.querySelectorAll('.site-row').length);
     assertTrue(!!query('#noSites'));
 
     webUIListenerCallback(

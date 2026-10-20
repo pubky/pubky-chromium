@@ -1,0 +1,5 @@
+TweetNaCl is a self-contained public-domain crypto library.
+
+The authors (Daniel J. Bernstein, Bernard van Gastel, Wesley Janssen, Tanja
+Lange, Peter Schwabe and Sjaak Smetsers) placed TweetNaCl in the public domain.
+See https://tweetnacl.cr.yp.to/.

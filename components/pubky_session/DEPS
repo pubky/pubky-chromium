@@ -1,0 +1,5 @@
+include_rules = [
+  "+third_party/blake3/src",
+  "+third_party/boringssl/src/include",
+  "+third_party/tweetnacl/src",
+]

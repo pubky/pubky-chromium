@@ -1,0 +1,19 @@
+# Generates sdk_vectors.json for components/pubky_session/core tests from the
+# Pubky Rust SDK, so the C++ implementation is checked against the reference.
+# Not part of the Chromium build. Run: cargo run --release > ../../../components/pubky_session/core/test_data/sdk_vectors.json
+[package]
+name = "pubky-session-vectors"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+pubky-common = { git = "https://github.com/pubky/pubky-core", rev = "131370c0a19c343c5c3aa4b7414f77b01b5066ac" }
+pubky = { git = "https://github.com/pubky/pubky-core", rev = "131370c0a19c343c5c3aa4b7414f77b01b5066ac" }
+hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2"
+
+[workspace]

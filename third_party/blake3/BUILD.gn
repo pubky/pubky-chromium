@@ -1,0 +1,30 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Portable BLAKE3 only. Pubky uses it for relay channel IDs, hashing at most a
+# few dozen bytes per sign-in, so the SIMD back ends are left out.
+
+config("blake3_config") {
+  include_dirs = [ "src" ]
+}
+
+static_library("blake3") {
+  sources = [
+    "src/blake3.c",
+    "src/blake3.h",
+    "src/blake3_dispatch.c",
+    "src/blake3_impl.h",
+    "src/blake3_portable.c",
+  ]
+  defines = [
+    "BLAKE3_NO_SSE2",
+    "BLAKE3_NO_SSE41",
+    "BLAKE3_NO_AVX2",
+    "BLAKE3_NO_AVX512",
+    "BLAKE3_USE_NEON=0",
+  ]
+  public_configs = [ ":blake3_config" ]
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+}

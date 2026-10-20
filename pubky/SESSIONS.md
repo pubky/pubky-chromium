@@ -63,6 +63,21 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
 - **Identity button states.** Signed out (Sign in), waiting for Ring, signed in
   (avatar and name), approval expired, Incognito.
 
+## Implementation
+
+Decided with the owner in October 2026 while starting
+[#68](https://github.com/pubky/pubky-chromium/issues/68)–[#73](https://github.com/pubky/pubky-chromium/issues/73):
+
+- **Protocol in C++ on BoringSSL.** Ed25519, HPKE (X25519-HKDF-SHA256 with
+  ChaCha20-Poly1305) and randomness come from BoringSSL. BLAKE3 (relay channel
+  IDs) and XSalsa20-Poly1305 (bare grant approvals) come from small vendored C
+  libraries, `//third_party/blake3` and `//third_party/tweetnacl`.
+- **Checked against the SDK.** `//components/pubky_session/core` tests run
+  against fixtures generated from the Pubky Rust SDK at a pinned revision by
+  `//pubky/tools/session_vectors`.
+- **Storage.** The client key, grant and bearer live in a per-profile file
+  encrypted with Chromium's OS-backed encryption, as cookies and passwords are.
+
 ## Lifetime
 
 - The browser grant survives restarts until it expires or the user signs out.

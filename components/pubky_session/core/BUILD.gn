@@ -1,0 +1,56 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+
+static_library("core") {
+  sources = [
+    "approval.cc",
+    "approval.h",
+    "capabilities.cc",
+    "capabilities.h",
+    "crypto.cc",
+    "crypto.h",
+    "grant_session.cc",
+    "grant_session.h",
+    "jws.cc",
+    "jws.h",
+    "signin_link.cc",
+    "signin_link.h",
+  ]
+  public_deps = [ "//base" ]
+  deps = [
+    "//third_party/blake3",
+    "//third_party/boringssl",
+    "//third_party/tweetnacl",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "approval_unittest.cc",
+    "capabilities_unittest.cc",
+    "crypto_unittest.cc",
+    "grant_session_unittest.cc",
+    "jws_unittest.cc",
+    "signin_link_unittest.cc",
+    "test_vectors.cc",
+    "test_vectors.h",
+  ]
+  deps = [
+    ":core",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+  data = [ "test_data/" ]
+}
+
+test("pubky_session_core_unittests") {
+  deps = [
+    ":unit_tests",
+    "//base/test:run_all_unittests",
+  ]
+}

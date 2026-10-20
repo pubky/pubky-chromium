@@ -63,11 +63,13 @@ Implemented in the current fork.
   security state. Page info shows "Public-key TLS connection is secure"
   (English only).
 - **Delegation.** Not supported: a site can only be served by the holder of
-  its own key.
+  its own key. Delegation needs verified packets, so this path never gains
+  it ([#60](https://github.com/pubky/pubky-chromium/issues/60)).
 
 ## With PKResolve
 
-Decided. This replaces DoH routing for key hosts once PKResolve ships.
+Decided. PKResolve replaces DoH routing for key hosts outright; see
+[Rollout](#rollout).
 
 ### Inputs
 
@@ -83,12 +85,16 @@ Decided. This replaces DoH routing for key hosts once PKResolve ships.
   at `<service>` for port 443 and at `_<port>._https.<service>` otherwise.
 - Each compatible ServiceMode record gives one candidate: addresses, a
   connection port and protocols (`h2`, `http/1.1`).
+- A ServiceMode target is `.` or another key name. With `.` the addresses
+  come from the owner's own packet. With a key name they come from that
+  key's verified packet, while the connection port and protocols still come
+  from this record; the target's HTTPS records are not followed.
 - A ServiceMode record is required. A/AAAA records alone do not route a key
   host. This is stricter than today's DoH path.
 - `HTTPS 0 .` means the owner declared the service unavailable; the browser
   shows an error.
-- Deferred: HTTPS AliasMode to other names, alternate targets, routing
-  CNAMEs, ECH and HTTP/3.
+- Deferred: HTTPS AliasMode to other names, ServiceMode targets that are
+  ordinary domains, routing CNAMEs, ECH and HTTP/3.
 
 ### TLS authority: who may answer
 
@@ -105,6 +111,33 @@ The authority is found separately for each connection port, at
   connection fails.
 - **Missing or unverifiable evidence** never proves that a chain ended. The
   connection fails.
+
+### Example: a site served by the user's homeserver
+
+Decided in [#60](https://github.com/pubky/pubky-chromium/issues/60), following the pkdns delegation proposal with a ServiceMode
+target in place of its AliasMode example:
+
+```dns
+; Signed by the user
+<user-key>.                  IN HTTPS 1 <homeserver-key>. port=8443
+_8443._tcp.<user-key>.       IN CNAME _8443._tcp.<homeserver-key>.
+blog.<user-key>.             IN HTTPS 1 <homeserver-key>. port=8443
+_8443._tcp.blog.<user-key>.  IN CNAME _8443._tcp.<homeserver-key>.
+; Signed by the homeserver
+<homeserver-key>.            IN HTTPS 1 . port=8443
+<homeserver-key>.            IN A 203.0.113.10
+```
+
+- The browser connects to the homeserver's address on the port in the user's
+  record and expects the homeserver's key, because the homeserver publishes
+  no TLS CNAME of its own.
+- SNI and the `Host` header stay `<user-key>` or `blog.<user-key>`, which is
+  how the homeserver selects the site ([pubky/pubky-homeserver#711](https://github.com/pubky/pubky-homeserver/issues/711)).
+- Every service delegates on its own: the records for `<user-key>` do not
+  cover `blog.<user-key>`.
+- The TLS CNAME name carries the connection port. A homeserver that changes
+  its address needs no user update; one that changes its TLS port needs every
+  user to republish both records.
 
 ### Handshake
 
@@ -165,6 +198,7 @@ key it accepts.
 - The security state is secure only after a successful raw-key handshake.
 - Page info names the authenticating key. When the site is delegated it
   shows both: served by the provider key on behalf of the URL key.
+- Delegated sites get no other marker in the address bar or security chip.
 
 ### Plain HTTP, secure contexts and mixed content
 
@@ -175,12 +209,20 @@ key it accepts.
 
 ## Rollout
 
-- PKResolve ships behind a flag, with DoH as the default. The user picks one
-  resolver for key hosts; the browser does not switch between them per
-  request.
-- PKResolve becomes the default only after the PKResolve items in
-  [THREAT_MODEL.md](THREAT_MODEL.md) are closed. DoH then stays available as
-  a kill switch.
+Decided in [#60](https://github.com/pubky/pubky-chromium/issues/60).
+
+- PKResolve replaces DoH for key hosts outright as soon as the integration
+  passes the release checks in [PROJECT.md](PROJECT.md). There is no flag, and
+  no DoH fallback or kill switch for key hosts.
+- The gaps under [Not yet implemented in PKResolve](#not-yet-implemented-in-pkresolve)
+  ship as open threats in [THREAT_MODEL.md](THREAT_MODEL.md) until fixed.
+  Until packet signatures are verified, the PKResolve service is trusted for
+  routing and delegation.
+- Delegation works only through PKResolve. The DoH path keeps direct keys
+  only until PKResolve replaces it.
+- Ordinary hostnames then use Chromium's default secure DNS mode: the system
+  resolver, upgraded to its DNS-over-HTTPS service when it offers one. The
+  `pkdns.pubky.org` default is removed.
 
 ## Not yet implemented in PKResolve
 
@@ -190,6 +232,7 @@ As of `e88b7072`, the PKResolve code implements less than this model:
   when parsing stored packets. A PKARR release with the fix is needed.
 - TLS CNAMEs are ignored; only the direct case works. The Chromium interface
   returns one key per resolution and needs one per connection port.
+- ServiceMode targets that are other key names are not followed.
 - Version rollback is not checked, and there is no cap on signed-packet age.
 - Response size and parsing work are not bounded in Rust.
 - The service has no HTTP server yet.

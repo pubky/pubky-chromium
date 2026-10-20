@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/blink/renderer/modules/pubky/pubky.h"
+#include "third_party/blink/renderer/modules/pubky/pubky_session_requester.h"
 
 #include "base/notreached.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/navigator.h"
+#include "third_party/blink/renderer/core/frame/pubky_capabilities.h"
 #include "third_party/blink/renderer/modules/pubky/pubky_session.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
@@ -20,24 +21,33 @@
 namespace blink {
 
 // static
-const char Pubky::kSupplementName[] = "Pubky";
+const char PubkySessionRequester::kSupplementName[] = "PubkySessionRequester";
 
 // static
-Pubky* Pubky::pubky(Navigator& navigator) {
-  auto* supplement = Supplement<Navigator>::From<Pubky>(navigator);
+PubkySessionRequester& PubkySessionRequester::From(Navigator& navigator) {
+  auto* supplement =
+      Supplement<Navigator>::From<PubkySessionRequester>(navigator);
   if (!supplement) {
-    supplement = MakeGarbageCollected<Pubky>(navigator);
+    supplement = MakeGarbageCollected<PubkySessionRequester>(navigator);
     ProvideTo(navigator, supplement);
   }
-  return supplement;
+  return *supplement;
 }
 
-Pubky::Pubky(Navigator& navigator)
+// static
+ScriptPromise<PubkySession> PubkySessionRequester::requestSession(
+    ScriptState* script_state,
+    PubkyCapabilities& capabilities,
+    const Vector<String>& scopes,
+    ExceptionState& exception_state) {
+  return From(*capabilities.GetSupplementable())
+      .RequestSession(script_state, scopes, exception_state);
+}
+
+PubkySessionRequester::PubkySessionRequester(Navigator& navigator)
     : Supplement<Navigator>(navigator), host_(navigator.DomWindow()) {}
 
-Pubky::~Pubky() = default;
-
-ScriptPromise<PubkySession> Pubky::requestSession(
+ScriptPromise<PubkySession> PubkySessionRequester::RequestSession(
     ScriptState* script_state,
     const Vector<String>& scopes,
     ExceptionState& exception_state) {
@@ -48,13 +58,13 @@ ScriptPromise<PubkySession> Pubky::requestSession(
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<PubkySession>>(
       script_state, exception_state.GetContext());
   ScriptPromise<PubkySession> promise = resolver->Promise();
-  host->RequestSession(scopes,
-                       BindOnce(&Pubky::OnRequestSession, WrapPersistent(this),
-                                WrapPersistent(resolver)));
+  host->RequestSession(
+      scopes, BindOnce(&PubkySessionRequester::OnRequestSession,
+                       WrapPersistent(this), WrapPersistent(resolver)));
   return promise;
 }
 
-mojom::blink::PubkySessionHost* Pubky::GetHost(
+mojom::blink::PubkySessionHost* PubkySessionRequester::GetHost(
     ScriptState* script_state,
     ExceptionState& exception_state) {
   // Use the navigator's own window: `script_state` may belong to another
@@ -74,8 +84,8 @@ mojom::blink::PubkySessionHost* Pubky::GetHost(
 }
 
 // static
-void Pubky::Reject(ScriptPromiseResolverBase* resolver,
-                   mojom::blink::PubkyStatus status) {
+void PubkySessionRequester::Reject(ScriptPromiseResolverBase* resolver,
+                                   mojom::blink::PubkyStatus status) {
   switch (status) {
     case mojom::blink::PubkyStatus::kOk:
       NOTREACHED();
@@ -116,15 +126,15 @@ void Pubky::Reject(ScriptPromiseResolverBase* resolver,
   NOTREACHED();
 }
 
-void Pubky::Trace(Visitor* visitor) const {
+void PubkySessionRequester::Trace(Visitor* visitor) const {
   visitor->Trace(host_);
-  ScriptWrappable::Trace(visitor);
   Supplement<Navigator>::Trace(visitor);
 }
 
-void Pubky::OnRequestSession(ScriptPromiseResolver<PubkySession>* resolver,
-                             mojom::blink::PubkyStatus status,
-                             const String& public_key) {
+void PubkySessionRequester::OnRequestSession(
+    ScriptPromiseResolver<PubkySession>* resolver,
+    mojom::blink::PubkyStatus status,
+    const String& public_key) {
   if (status != mojom::blink::PubkyStatus::kOk) {
     Reject(resolver, status);
     return;

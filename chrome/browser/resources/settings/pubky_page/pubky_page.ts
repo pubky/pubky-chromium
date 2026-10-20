@@ -54,10 +54,12 @@ export class SettingsPubkyPageElement extends SettingsPubkyPageElementBase
   override connectedCallback() {
     super.connectedCallback();
     this.addWebUiListener(
-        'pubky-identity-changed',
-        (identity: PubkyIdentity) => this.identity_ = identity);
-    this.browserProxy_.getPubkyIdentity().then(
-        identity => this.identity_ = identity);
+        'pubky-identity-changed', (identity: PubkyIdentity) => {
+          this.identity_ = identity;
+        });
+    this.browserProxy_.getPubkyIdentity().then(identity => {
+      this.identity_ = identity;
+    });
   }
 
   protected getInitial_(): string {

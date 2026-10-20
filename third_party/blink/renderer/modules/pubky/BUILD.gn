@@ -6,9 +6,9 @@ import("//third_party/blink/renderer/modules/modules.gni")
 
 blink_modules_sources("pubky") {
   sources = [
-    "pubky.cc",
-    "pubky.h",
     "pubky_session.cc",
     "pubky_session.h",
+    "pubky_session_requester.cc",
+    "pubky_session_requester.h",
   ]
 }

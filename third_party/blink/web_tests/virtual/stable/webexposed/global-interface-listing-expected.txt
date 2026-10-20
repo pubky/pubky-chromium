@@ -7342,8 +7342,10 @@ interface ProtectedAudience
     attribute @@toStringTag
     method constructor
     method queryFeatureSupport
-interface Pubky
+interface PubkyCapabilities
     attribute @@toStringTag
+    getter supportsPkdns
+    getter supportsRawPublicKeyTls
     method constructor
     method requestSession
 interface PubkySession

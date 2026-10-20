@@ -4,13 +4,13 @@ Status: S0 foundations complete (October 2026). This document records the approv
 
 ## Product and first milestone
 
-Build on the existing Pubky Chromium fork. The long-term goal is native Pubky identity and scoped sessions, with public-key navigation, authenticated connections, and identity UI. The immediate milestone is a reproducible Linux baseline and an evidence-backed map of the remaining work. No session storage, authenticated writes, replacement of existing browsing protections, mobile implementation, release signing, or new resolver implementation is authorized in this first milestone.
+Build on the existing Pubky Chromium fork. The goal is native Pubky identity and scoped sessions, with public-key navigation, authenticated connections, and identity UI. The session layer decided in #62 is approved: signing the browser in with Pubky Ring, the browser-held grant and its encrypted storage, `navigator.pubky.requestSession()` with per-site scopes, and the identity UI. See `pubky/SESSIONS.md`. Replacing existing browsing protections, mobile work and new resolver implementations still need the owner.
 
 Repository: `pubky/pubky-chromium`, development branch `pubky`.
 
 Adopted source revision: `77445742d82c8cfc482b2fea0476fe5f84d16032` from `SeverinAlexB/pubky-chromium`. Its recorded Chromium base is `7fec6741f4f7ea010205dc20afc7dafb90221176`. Keep the inherited `DEPS` and `pubky/depot-tools-revision.txt` pins until an approved update. Preserve Chromium branding/licensing restrictions and third-party notices.
 
-The inherited project documents macOS ARM64 results in `pubky/VERIFICATION.md`. Those are the source author's results, not independent Linux validation by this project. The current `navigator.pubky` interface reports built-in capabilities; it is not a privileged session API.
+The inherited project documents macOS ARM64 results in `pubky/VERIFICATION.md`. Those are the source author's results, not independent Linux validation by this project. `navigator.pubky` reports built-in capabilities on every page and, in secure contexts, offers `requestSession()`, the session API in `pubky/SESSIONS.md`.
 
 ## Scope and standing approvals
 

@@ -17,7 +17,7 @@
 #include "third_party/blink/renderer/core/fetch/response.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_piece.h"
-#include "third_party/blink/renderer/modules/pubky/pubky.h"
+#include "third_party/blink/renderer/modules/pubky/pubky_session_requester.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -34,7 +34,7 @@ void OnGet(ScriptPromiseResolver<Response>* resolver,
            const String& content_type,
            std::optional<mojo_base::BigBuffer> body) {
   if (status != PubkyStatus::kOk) {
-    Pubky::Reject(resolver, status);
+    PubkySessionRequester::Reject(resolver, status);
     return;
   }
   ScriptState* script_state = resolver->GetScriptState();
@@ -54,7 +54,7 @@ void OnGet(ScriptPromiseResolver<Response>* resolver,
 
 void OnDone(ScriptPromiseResolver<IDLUndefined>* resolver, PubkyStatus status) {
   if (status != PubkyStatus::kOk) {
-    Pubky::Reject(resolver, status);
+    PubkySessionRequester::Reject(resolver, status);
     return;
   }
   resolver->Resolve();
@@ -64,7 +64,7 @@ void OnList(ScriptPromiseResolver<IDLSequence<IDLUSVString>>* resolver,
             PubkyStatus status,
             const Vector<String>& entries) {
   if (status != PubkyStatus::kOk) {
-    Pubky::Reject(resolver, status);
+    PubkySessionRequester::Reject(resolver, status);
     return;
   }
   resolver->Resolve(entries);
@@ -72,8 +72,9 @@ void OnList(ScriptPromiseResolver<IDLSequence<IDLUSVString>>* resolver,
 
 }  // namespace
 
-PubkySession::PubkySession(Pubky* pubky, const String& public_key)
-    : pubky_(pubky), public_key_(public_key) {}
+PubkySession::PubkySession(PubkySessionRequester* requester,
+                           const String& public_key)
+    : requester_(requester), public_key_(public_key) {}
 
 PubkySession::~PubkySession() = default;
 
@@ -81,7 +82,7 @@ ScriptPromise<Response> PubkySession::get(ScriptState* script_state,
                                           const String& path,
                                           ExceptionState& exception_state) {
   mojom::blink::PubkySessionHost* host =
-      pubky_->GetHost(script_state, exception_state);
+      requester_->GetHost(script_state, exception_state);
   if (!host) {
     return EmptyPromise();
   }
@@ -98,7 +99,7 @@ ScriptPromise<IDLUndefined> PubkySession::put(ScriptState* script_state,
                                               const String& content_type,
                                               ExceptionState& exception_state) {
   mojom::blink::PubkySessionHost* host =
-      pubky_->GetHost(script_state, exception_state);
+      requester_->GetHost(script_state, exception_state);
   if (!host) {
     return EmptyPromise();
   }
@@ -116,7 +117,7 @@ ScriptPromise<IDLUndefined> PubkySession::Delete(
     const String& path,
     ExceptionState& exception_state) {
   mojom::blink::PubkySessionHost* host =
-      pubky_->GetHost(script_state, exception_state);
+      requester_->GetHost(script_state, exception_state);
   if (!host) {
     return EmptyPromise();
   }
@@ -133,7 +134,7 @@ ScriptPromise<IDLSequence<IDLUSVString>> PubkySession::list(
     const PubkyListOptions* options,
     ExceptionState& exception_state) {
   mojom::blink::PubkySessionHost* host =
-      pubky_->GetHost(script_state, exception_state);
+      requester_->GetHost(script_state, exception_state);
   if (!host) {
     return EmptyPromise();
   }
@@ -152,7 +153,7 @@ ScriptPromise<IDLSequence<IDLUSVString>> PubkySession::list(
 }
 
 void PubkySession::Trace(Visitor* visitor) const {
-  visitor->Trace(pubky_);
+  visitor->Trace(requester_);
   ScriptWrappable::Trace(visitor);
 }
 

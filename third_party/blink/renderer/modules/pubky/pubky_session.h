@@ -15,7 +15,7 @@
 namespace blink {
 
 class ExceptionState;
-class Pubky;
+class PubkySessionRequester;
 class PubkyListOptions;
 class Response;
 class ScriptState;
@@ -27,7 +27,7 @@ class PubkySession final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  PubkySession(Pubky* pubky, const String& public_key);
+  PubkySession(PubkySessionRequester* requester, const String& public_key);
   ~PubkySession() override;
 
   const String& publicKey() const { return public_key_; }
@@ -52,7 +52,7 @@ class PubkySession final : public ScriptWrappable {
   void Trace(Visitor* visitor) const override;
 
  private:
-  Member<Pubky> pubky_;
+  Member<PubkySessionRequester> requester_;
   const String public_key_;
 };
 

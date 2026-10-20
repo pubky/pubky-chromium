@@ -131,11 +131,13 @@ void PubkySitePromptView::Show(content::WebContents* contents,
   bubble_anchor_util::AnchorConfiguration anchor =
       bubble_anchor_util::GetPageInfoAnchorConfiguration(
           tab->GetBrowserWindowInterface());
-  auto prompt = base::WrapUnique(new PubkySitePromptView(
-      anchor.anchor, anchor.bubble_arrow, contents, service, origin, scopes,
-      ring, std::move(callback)));
-  g_prompt = prompt.get();
-  views::BubbleDialogDelegateView::CreateBubble(std::move(prompt))->Show();
+  g_prompt = new PubkySitePromptView(anchor.anchor, anchor.bubble_arrow,
+                                     contents, service, origin, scopes, ring,
+                                     std::move(callback));
+  // Owned as the base class, whose destructor is public.
+  views::BubbleDialogDelegateView::CreateBubble(
+      std::unique_ptr<views::BubbleDialogDelegateView>(g_prompt))
+      ->Show();
 }
 
 PubkySitePromptView::PubkySitePromptView(

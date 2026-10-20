@@ -82,11 +82,11 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
   }
 
   PubkySessionService* Service() {
-    return PubkySessionServiceFactory::GetForProfile(browser()->profile());
+    return PubkySessionServiceFactory::GetForProfile(browser()->GetProfile());
   }
 
   HostContentSettingsMap* Settings() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
   }
 
   content::WebContents* Tab() {

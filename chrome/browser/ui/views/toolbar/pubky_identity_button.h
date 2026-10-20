@@ -13,7 +13,7 @@
 #include "components/pubky_session/pubky_session_service.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 // The toolbar's identity button. It replaces the profile avatar button: it
 // shows the profile's Pubky identity and its sign-in state, and opens
@@ -24,7 +24,7 @@ class PubkyIdentityButton
   METADATA_HEADER(PubkyIdentityButton, ToolbarButton)
 
  public:
-  explicit PubkyIdentityButton(Browser* browser);
+  explicit PubkyIdentityButton(BrowserWindowInterface* browser);
   PubkyIdentityButton(const PubkyIdentityButton&) = delete;
   PubkyIdentityButton& operator=(const PubkyIdentityButton&) = delete;
   ~PubkyIdentityButton() override;
@@ -42,7 +42,7 @@ class PubkyIdentityButton
   void ButtonPressed();
   void UpdateAppearance();
 
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
   // Null for profiles without Pubky sessions, such as Guest.
   const raw_ptr<pubky_session::PubkySessionService> service_;
   std::u16string label_;

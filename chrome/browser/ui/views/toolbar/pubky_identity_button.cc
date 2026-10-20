@@ -13,6 +13,7 @@
 #include "chrome/browser/pubky_session/pubky_session_host_impl.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_bubble_view.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_ui.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
@@ -30,11 +31,11 @@ constexpr int kIconSize = 20;
 
 }  // namespace
 
-PubkyIdentityButton::PubkyIdentityButton(Browser* browser)
+PubkyIdentityButton::PubkyIdentityButton(BrowserWindowInterface* browser)
     : ToolbarButton(base::BindRepeating(&PubkyIdentityButton::ButtonPressed,
                                         base::Unretained(this))),
       browser_(browser),
-      service_(PubkySessionServiceFactory::GetForProfile(browser->profile())) {
+      service_(PubkySessionServiceFactory::GetForProfile(browser->GetProfile())) {
   GetViewAccessibility().SetName(
       l10n_util::GetStringUTF16(IDS_PUBKY_IDENTITY_BUTTON_ACCESSIBLE_NAME));
   if (!service_) {
@@ -57,7 +58,7 @@ void PubkyIdentityButton::OpenPanel() {
   // Outside Incognito the panel shows a live sign-in link as soon as it
   // opens. Incognito asks first, because a sign-in there ends with the window.
   if (service_->state() == State::kSignedOut &&
-      !browser_->profile()->IsOffTheRecord()) {
+      !browser_->GetProfile()->IsOffTheRecord()) {
     service_->StartSignIn(base::DoNothing());
   }
   if (!PubkyIdentityBubbleView::IsShowing()) {
@@ -74,7 +75,7 @@ void PubkyIdentityButton::ButtonPressed() {
 }
 
 void PubkyIdentityButton::UpdateAppearance() {
-  const bool incognito = browser_->profile()->IsOffTheRecord();
+  const bool incognito = browser_->GetProfile()->IsOffTheRecord();
   ui::ImageModel icon = ui::ImageModel::FromResourceId(IDR_PRODUCT_LOGO_16);
   std::optional<SkColor> highlight;
   switch (service_->state()) {

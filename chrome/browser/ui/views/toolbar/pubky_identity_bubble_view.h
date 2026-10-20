@@ -16,7 +16,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace views {
 class Button;
@@ -36,7 +36,7 @@ class PubkyIdentityBubbleView
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSignOutElementId);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPassportElementId);
 
-  static void Show(views::Button* anchor, Browser* browser);
+  static void Show(views::Button* anchor, BrowserWindowInterface* browser);
   static void Hide();
   static bool IsShowing();
   static PubkyIdentityBubbleView* GetForTesting();
@@ -48,7 +48,7 @@ class PubkyIdentityBubbleView
   void OnPubkySessionChanged() override;
 
  private:
-  PubkyIdentityBubbleView(views::Button* anchor, Browser* browser);
+  PubkyIdentityBubbleView(views::Button* anchor, BrowserWindowInterface* browser);
   ~PubkyIdentityBubbleView() override;
 
   // views::WidgetDelegate:
@@ -77,7 +77,7 @@ class PubkyIdentityBubbleView
   void OpenSettings();
   void SignOut();
 
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<pubky_session::PubkySessionService> service_;
   base::ScopedObservation<pubky_session::PubkySessionService,
                           pubky_session::PubkySessionService::Observer>

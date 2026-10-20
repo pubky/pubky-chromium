@@ -24,6 +24,7 @@
 #include "chrome/browser/pubky_session/pubky_identity_text.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -130,13 +131,15 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PubkyIdentityBubbleView,
                                       kPassportElementId);
 
 // static
-void PubkyIdentityBubbleView::Show(views::Button* anchor, Browser* browser) {
+void PubkyIdentityBubbleView::Show(views::Button* anchor, BrowserWindowInterface* browser) {
   if (g_bubble) {
     return;
   }
-  auto bubble = base::WrapUnique(new PubkyIdentityBubbleView(anchor, browser));
-  g_bubble = bubble.get();
-  views::BubbleDialogDelegateView::CreateBubble(std::move(bubble))->Show();
+  g_bubble = new PubkyIdentityBubbleView(anchor, browser);
+  // Owned as the base class, whose destructor is public.
+  views::BubbleDialogDelegateView::CreateBubble(
+      std::unique_ptr<views::BubbleDialogDelegateView>(g_bubble))
+      ->Show();
 }
 
 // static
@@ -157,10 +160,10 @@ PubkyIdentityBubbleView* PubkyIdentityBubbleView::GetForTesting() {
 }
 
 PubkyIdentityBubbleView::PubkyIdentityBubbleView(views::Button* anchor,
-                                                 Browser* browser)
+                                                 BrowserWindowInterface* browser)
     : BubbleDialogDelegateView(anchor, views::BubbleBorder::TOP_RIGHT),
       browser_(browser),
-      service_(PubkySessionServiceFactory::GetForProfile(browser->profile())) {
+      service_(PubkySessionServiceFactory::GetForProfile(browser->GetProfile())) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   set_fixed_width(kBubbleWidth);
   set_margins(
@@ -204,7 +207,7 @@ void PubkyIdentityBubbleView::Rebuild() {
                    views::style::STYLE_SECONDARY);
       break;
     case State::kSignedOut:
-      if (browser_->profile()->IsOffTheRecord()) {
+      if (browser_->GetProfile()->IsOffTheRecord()) {
         AddIncognitoContent();
       } else {
         AddSignedOutContent();
@@ -354,7 +357,7 @@ void PubkyIdentityBubbleView::AddSignedInContent() {
                      u" " + ShortPubkyKey(*homeserver),
                  views::style::STYLE_SECONDARY);
   }
-  if (!browser_->profile()->IsOffTheRecord()) {
+  if (!browser_->GetProfile()->IsOffTheRecord()) {
     AddChildView(std::make_unique<HoverButton>(
         base::BindRepeating(&PubkyIdentityBubbleView::OpenSettings,
                             base::Unretained(this)),
@@ -389,7 +392,7 @@ void PubkyIdentityBubbleView::AddIdentitiesSection() {
                 views::style::CONTEXT_DIALOG_BODY_TEXT,
                 views::style::STYLE_SECONDARY));
 
-  const base::FilePath current_path = browser_->profile()->GetPath();
+  const base::FilePath current_path = browser_->GetProfile()->GetPath();
   ProfileAttributesStorage& storage =
       g_browser_process->profile_manager()->GetProfileAttributesStorage();
   for (ProfileAttributesEntry* entry :

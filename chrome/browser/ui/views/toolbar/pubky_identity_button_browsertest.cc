@@ -13,6 +13,7 @@
 #include "chrome/browser/pubky_session/pubky_identity_text.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_bubble_view.h"
@@ -36,24 +37,24 @@ using State = pubky_session::PubkySessionService::State;
 
 class PubkyIdentityButtonBrowserTest : public InProcessBrowserTest {
  protected:
-  ToolbarView* Toolbar(Browser* browser) {
+  ToolbarView* Toolbar(BrowserWindowInterface* browser) {
     return BrowserView::GetBrowserViewForBrowser(browser)->toolbar();
   }
 
-  PubkyIdentityButton* Button(Browser* browser) {
+  PubkyIdentityButton* Button(BrowserWindowInterface* browser) {
     return Toolbar(browser)->pubky_identity_button();
   }
 
-  pubky_session::PubkySessionService* Service(Browser* browser) {
-    return PubkySessionServiceFactory::GetForProfile(browser->profile());
+  pubky_session::PubkySessionService* Service(BrowserWindowInterface* browser) {
+    return PubkySessionServiceFactory::GetForProfile(browser->GetProfile());
   }
 
-  void WaitUntilLoaded(Browser* browser) {
+  void WaitUntilLoaded(BrowserWindowInterface* browser) {
     ASSERT_TRUE(base::test::RunUntil(
         [&] { return Service(browser)->state() != State::kLoading; }));
   }
 
-  void Click(Browser* browser) {
+  void Click(BrowserWindowInterface* browser) {
     views::test::ButtonTestApi(Button(browser))
         .NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::Point(),
                                     gfx::Point(), ui::EventTimeForNow(), 0, 0));
@@ -137,7 +138,7 @@ IN_PROC_BROWSER_TEST_F(PubkyIdentityButtonBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PubkyIdentityButtonBrowserTest,
                        IncognitoAsksBeforeSigningIn) {
-  Browser* incognito = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito = CreateIncognitoBrowser();
   WaitUntilLoaded(incognito);
   EXPECT_EQ(Button(incognito)->label_for_testing(),
             l10n_util::GetStringUTF16(IDS_PUBKY_IDENTITY_BUTTON_INCOGNITO));

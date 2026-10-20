@@ -102,6 +102,10 @@ class ToolbarView : public views::AccessiblePaneView,
   METADATA_HEADER(ToolbarView, views::AccessiblePaneView)
 
  public:
+  // The Pubky identity button, which replaces the avatar button.
+  PubkyIdentityButton* pubky_identity_button() {
+    return pubky_identity_button_;
+  }
   // Types of display mode this toolbar can have.
   enum class DisplayMode {
     kNormal,    // Normal toolbar with buttons, etc.
@@ -343,9 +347,6 @@ class ToolbarView : public views::AccessiblePaneView,
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
   AvatarToolbarButtonInterface* GetAvatarToolbarButtonInterface() override;
   ToolbarButton* GetBackButton() override;
-  PubkyIdentityButton* pubky_identity_button() {
-    return pubky_identity_button_;
-  }
   ReloadControl* GetReloadButton() override;
   ToolbarButton* GetDownloadButton() override;
 

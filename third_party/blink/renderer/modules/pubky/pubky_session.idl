@@ -16,7 +16,7 @@
     [CallWith=ScriptState, RaisesException]
     Promise<undefined> put(USVString path, BufferSource body,
                            optional DOMString contentType = "");
-    [CallWith=ScriptState, RaisesException]
+    [CallWith=ScriptState, RaisesException, ImplementedAs=Delete]
     Promise<undefined> delete(USVString path);
     // Resolves to pubky:// URLs.
     [CallWith=ScriptState, RaisesException]

@@ -12,6 +12,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -61,6 +62,24 @@ std::optional<SiteAccess> GetSiteAccess(HostContentSettingsMap* map,
   access.since = base::ValueToTime(record.GetDict().Find(kSinceKey))
                      .value_or(base::Time());
   return access;
+}
+
+std::vector<std::pair<url::Origin, SiteAccess>> GetAllSiteAccess(
+    HostContentSettingsMap* map,
+    const Key& user) {
+  std::vector<std::pair<url::Origin, SiteAccess>> sites;
+  for (const ContentSettingPatternSource& entry :
+       map->GetSettingsForOneType(ContentSettingsType::PUBKY_SITE_ACCESS)) {
+    const url::Origin origin =
+        url::Origin::Create(GURL(entry.primary_pattern.ToString()));
+    if (origin.opaque()) {
+      continue;
+    }
+    if (std::optional<SiteAccess> access = GetSiteAccess(map, origin, user)) {
+      sites.emplace_back(origin, std::move(*access));
+    }
+  }
+  return sites;
 }
 
 std::vector<Capability> GetSiteScopes(HostContentSettingsMap* map,

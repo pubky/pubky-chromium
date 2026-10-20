@@ -4,6 +4,8 @@
 
 source_set("pubky_session") {
   sources = [
+    "pubky_identity_text.cc",
+    "pubky_identity_text.h",
     "pubky_session_host_impl.cc",
     "pubky_session_host_impl.h",
     "pubky_session_service_factory.cc",
@@ -19,12 +21,14 @@ source_set("pubky_session") {
   ]
   deps = [
     "//base",
+    "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings:content_settings_factory",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
     "//mojo/public/cpp/base",
     "//services/network/public/cpp",
+    "//ui/base",
     "//url",
   ]
 }

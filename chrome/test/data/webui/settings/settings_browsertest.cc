@@ -186,6 +186,12 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, DefaultBrowser) {
 }
 #endif
 
+#if !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(SettingsTest, PubkyPage) {
+  RunTest("settings/pubky_page_test.js", "mocha.run()");
+}
+#endif
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, DoNotTrackToggle) {
   RunTest("settings/do_not_track_toggle_test.js", "mocha.run()");
 }

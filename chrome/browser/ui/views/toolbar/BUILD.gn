@@ -226,6 +226,7 @@ source_set("impl") {
   deps = [
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/pubky_session",
+    "//chrome/browser/ui:chrome_pages",
     "//chrome/browser/ui/views:bubble_anchor_util_views",
     "//chrome/browser/ui/views/controls",
     "//components/pubky_session/core",

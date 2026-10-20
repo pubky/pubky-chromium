@@ -12,6 +12,7 @@
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/pubky_session/pubky_identity_text.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/pubky_session/pubky_site_access.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"

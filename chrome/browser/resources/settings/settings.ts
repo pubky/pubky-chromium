@@ -83,6 +83,9 @@ export {BaseMixin} from './base_mixin.js';
 export {DefaultBrowserBrowserProxyImpl} from './default_browser_page/default_browser_browser_proxy.js';
 export type {DefaultBrowserBrowserProxy, DefaultBrowserInfo} from './default_browser_page/default_browser_browser_proxy.js';
 export {SettingsDefaultBrowserPageElement} from './default_browser_page/default_browser_page.js';
+export {PubkyBrowserProxyImpl} from './pubky_page/pubky_browser_proxy.js';
+export type {PubkyBrowserProxy, PubkyIdentity, PubkySite} from './pubky_page/pubky_browser_proxy.js';
+export {SettingsPubkyPageElement} from './pubky_page/pubky_page.js';
 // </if>
 export {GlicBrowserProxyImpl} from './glic_page/glic_browser_proxy.js';
 export type {GlicBrowserProxy, LoginPermission} from './glic_page/glic_browser_proxy.js';

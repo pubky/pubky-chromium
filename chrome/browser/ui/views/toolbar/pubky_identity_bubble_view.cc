@@ -21,9 +21,11 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/pubky_session/pubky_identity_text.h"
 #include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
@@ -353,6 +355,10 @@ void PubkyIdentityBubbleView::AddSignedInContent() {
                  views::style::STYLE_SECONDARY);
   }
   if (!browser_->profile()->IsOffTheRecord()) {
+    AddChildView(std::make_unique<HoverButton>(
+        base::BindRepeating(&PubkyIdentityBubbleView::OpenSettings,
+                            base::Unretained(this)),
+        l10n_util::GetStringUTF16(IDS_PUBKY_IDENTITY_MANAGE_SITES)));
     AddChildView(std::make_unique<views::Separator>());
     AddIdentitiesSection();
   }
@@ -463,6 +469,11 @@ void PubkyIdentityBubbleView::CopyKey() {
 
 void PubkyIdentityBubbleView::SwitchToProfile(const base::FilePath& path) {
   profiles::SwitchToProfile(path, /*always_create=*/false);
+  Hide();
+}
+
+void PubkyIdentityBubbleView::OpenSettings() {
+  chrome::ShowSettingsSubPage(browser_.get(), "pubky");
   Hide();
 }
 

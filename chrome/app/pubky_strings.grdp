@@ -175,4 +175,43 @@
   <message name="IDS_PUBKY_CHIP_TOOLTIP" desc="Tooltip of the address bar chip that shows which Pubky identity the current site uses. NAME is the user's name or a short form of their key.">
     This site uses your Pubky identity, <ph name="NAME">$1<ex>Marcos</ex></ph>
   </message>
+  <message name="IDS_PUBKY_SETTINGS_TITLE" desc="Title of the settings page and menu entry for the browser's Pubky identity.">
+    Pubky identity
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_APPROVAL" desc="On the Pubky identity settings page, what the browser's approval covers and which homeserver holds the data. HOMESERVER is a short form of the homeserver's key.">
+    Approved by Pubky Ring · <ph name="SCOPES">$1<ex>Read and write /pub/</ex></ph> · Homeserver <ph name="HOMESERVER">$2<ex>4msq…nowy</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_APPROVAL_EXPIRED" desc="On the Pubky identity settings page, shown instead of the approval line when the browser's approval expired.">
+    Approval expired · <ph name="SCOPES">$1<ex>Read and write /pub/</ex></ph> · Homeserver <ph name="HOMESERVER">$2<ex>4msq…nowy</ex></ph>
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_SITES" desc="Heading of the list of sites that use the user's Pubky identity.">
+    Sites using this identity
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_SITE_COLUMN" desc="Column heading for the site in the list of sites using the Pubky identity.">
+    Site
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_ACCESS_COLUMN" desc="Column heading for what a site may read and write.">
+    Access
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_SINCE_COLUMN" desc="Column heading for the date a site was first allowed.">
+    Since
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_REMOVE_SITE" desc="Button that removes a site's access to the user's Pubky identity.">
+    Remove
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_NO_SITES" desc="Shown instead of the list when no site uses the Pubky identity.">
+    No site uses this identity yet.
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_SIGN_OUT_BODY" desc="Explains what signing the browser out of Pubky does.">
+    Revokes the browser's grant on your homeserver. Every site loses access immediately.
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_SIGNED_OUT" desc="Shown on the Pubky identity settings page while the browser is not signed in.">
+    Sign in with the identity button in the toolbar to use your Pubky identity on sites.
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_UNAVAILABLE" desc="Shown on the Pubky identity settings page in profiles that can't sign in, such as Guest.">
+    Pubky identity isn't available in this profile.
+  </message>
+  <message name="IDS_PUBKY_IDENTITY_MANAGE_SITES" desc="Button in the identity panel that opens the settings page listing the sites that use the Pubky identity.">
+    Manage sites
+  </message>
 </grit-part>

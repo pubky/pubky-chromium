@@ -6,17 +6,15 @@
 #define CHROME_BROWSER_PUBKY_SESSION_PUBKY_SITE_ACCESS_H_
 
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "base/time/time.h"
 #include "components/pubky_session/core/capabilities.h"
 #include "components/pubky_session/core/crypto.h"
+#include "url/origin.h"
 
 class HostContentSettingsMap;
-
-namespace url {
-class Origin;
-}  // namespace url
 
 // Each site's access to the user's Pubky storage, kept in the
 // PUBKY_SITE_ACCESS website setting. A record belongs to the identity that
@@ -38,6 +36,11 @@ struct SiteAccess {
 std::optional<SiteAccess> GetSiteAccess(HostContentSettingsMap* map,
                                         const url::Origin& origin,
                                         const Key& user);
+
+// Every site with access for `user`'s identity, in no particular order.
+std::vector<std::pair<url::Origin, SiteAccess>> GetAllSiteAccess(
+    HostContentSettingsMap* map,
+    const Key& user);
 
 // The scopes `origin` may use with `user`'s identity. Empty when none.
 std::vector<Capability> GetSiteScopes(HostContentSettingsMap* map,

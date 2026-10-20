@@ -73,6 +73,8 @@ class PubkyIdentityBubbleView
   void CopyKey();
   void SwitchToProfile(const base::FilePath& path);
   void AddIdentity();
+  // Opens chrome://settings/pubky, which lists the sites using the identity.
+  void OpenSettings();
   void SignOut();
 
   const raw_ptr<Browser> browser_;

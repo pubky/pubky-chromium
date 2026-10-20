@@ -109,6 +109,9 @@ Decided with the owner in October 2026 while starting
   the user leaves the page or switches tabs. A connected site shows a chip
   with the identity in the address bar; it opens page info, whose "Pubky
   identity" section lists the access and disconnects the site.
+  `chrome://settings/pubky`, also reached from the identity panel's "Manage
+  sites", shows the identity, its approval and homeserver, every site with
+  its access and first-grant date and a Remove button, and sign-out.
 - **Site records.** Each site's scopes live in the `PUBKY_SITE_ACCESS` website
   setting with the identity's key and the date of the first grant. A record
   for another key does not count, so a different identity starts over.

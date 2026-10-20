@@ -50,6 +50,14 @@
 
 <cr-view-manager id="switcher"
     show-all$="[[shouldShowAll_(inSearchMode_, lastRoute_)]]">
+<if expr="not is_chromeos">
+  <div slot="view" id="pubky">
+    <template is="dom-if" if="[[renderPlugin_(
+        routes_.PUBKY, lastRoute_, inSearchMode_)]]">
+      <settings-pubky-page></settings-pubky-page>
+    </template>
+  </div>
+</if>
   <template is="dom-if" if="[[showPage_(pageVisibility_.people)]]">
     <div slot="view" id="people">
       <template is="dom-if" if="[[renderPlugin_(

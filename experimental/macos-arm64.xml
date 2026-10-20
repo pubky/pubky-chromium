@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:pubky="https://github.com/MCarlomagno/pubky-chromium">
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:pubky="https://github.com/pubky/pubky-chromium">
   <channel>
     <title>Pubky Chromium experimental, macOS arm64</title>
     <item>
-      <title>Pubky Chromium 156.0.8073.3</title>
-      <sparkle:version>8073.3</sparkle:version>
-      <sparkle:shortVersionString>156.0.8073.3</sparkle:shortVersionString>
+      <title>Pubky Chromium 156.0.8073.4</title>
+      <sparkle:version>8073.4</sparkle:version>
+      <sparkle:shortVersionString>156.0.8073.4</sparkle:shortVersionString>
       <sparkle:channel>experimental</sparkle:channel>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-      <pubky:repository>MCarlomagno/pubky-chromium</pubky:repository>
+      <pubky:repository>pubky/pubky-chromium</pubky:repository>
       <pubky:product>Pubky Chromium</pubky:product>
       <pubky:platform>macos</pubky:platform>
       <pubky:architecture>arm64</pubky:architecture>
       <pubky:channel>experimental</pubky:channel>
-      <pubky:issued_at>2026-10-09T09:13:56Z</pubky:issued_at>
-      <pubky:expires_at>2027-04-07T09:13:56Z</pubky:expires_at>
-      <enclosure url="https://github.com/MCarlomagno/pubky-chromium/releases/download/pubky-macos-156.0.8073.3/pubky-chromium-156.0.8073.3-macos-arm64.zip" length="230953777" type="application/octet-stream" sparkle:edSignature="H6oX5GEIxcGuIcYb3B4NGV5jFMAp4j9nQeu5qLP59HohwEEKgAv9GKZ2vVaP+7l6E2mhN0iH94ncFZmNvEbnDA=="/>
+      <pubky:issued_at>2026-10-17T17:41:33Z</pubky:issued_at>
+      <pubky:expires_at>2027-04-15T17:41:33Z</pubky:expires_at>
+      <enclosure url="https://github.com/pubky/pubky-chromium/releases/download/pubky-macos-156.0.8073.4/pubky-chromium-156.0.8073.4-macos-arm64.zip" length="230762780" type="application/octet-stream" sparkle:edSignature="LDxdKb0sp+HBuSdsZLpYqL7WlKMnPrSbw695ZDTvHd19QvXlBY5ojqhW6fWWv6+Blmfpro1wpVl0+JEkusljCw=="/>
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: +vU6CWq6O1d8LMBu34/O4aFBOJ01+jysUpQyJBDvZi3hOGp7oX6W2BRXL32tI2INX/bMS3ROczdBqidX2ZfIBA==
-length: 1390
+edSignature: K/H+5S1kU9K68AzpV7YpKQzKfyD8YM1z2Cdzvtq1kp6c5VFX2M0NQa7nXzuNoBP4WvE09CQbaefZcbIj9BzHCA==
+length: 1372
 -->

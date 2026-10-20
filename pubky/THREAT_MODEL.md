@@ -58,11 +58,27 @@ and attackers with physical access, as in upstream Chromium.
 | T17 | Idle requests to Google reveal browser use | Search suggestions, AI Mode and prewarming are off by default. | Unchanged. | Partly mitigated; full Google-service inventory pending |
 | T18 | Lookalike labels before the key, such as `paypal.com.<key>` | Labels are shown as typed; nothing emphasizes the key. | Same. | Open: emphasize the key and keep labels in ASCII ([IDENTIFIERS.md](IDENTIFIERS.md)) |
 
-## Before PKResolve ships enabled by default
+## PKResolve rollout
 
-T2, T5, T6, T7 and T9 must be mitigated, and T4 needs a stated policy. Until
-then PKResolve stays behind a flag, with DNS-over-HTTPS as the default and the
-kill switch.
+Decided in [#60](https://github.com/pubky/pubky-chromium/issues/60): PKResolve
+replaces DNS-over-HTTPS for key hosts as soon as it passes the release checks,
+without a flag or kill switch. T2, T5, T6, T7 and T9 ship as open threats until
+fixed, and T4 needs a stated policy before release.
+
+## Session layer
+
+Design in [SESSIONS.md](SESSIONS.md), decided in
+[#62](https://github.com/pubky/pubky-chromium/issues/62). Not implemented yet.
+
+| # | Threat | Design | Status |
+|---|---|---|---|
+| S1 | A page reads the session credential | The bearer and grant key stay in the browser process; pages get a handle. | Mitigated by design |
+| S2 | A script on an allowed site uses its access | Limited to that site's scopes; more scope prompts again; revocation is instant. | Accepted |
+| S3 | A site acts outside its scopes | The browser checks every path against the site's allowed scopes before calling the homeserver. | Mitigated by design |
+| S4 | A browser compromise exposes the browser grant | The grant covers `/pub/:rw` plus scopes added through Ring. Sign-out revokes it on the homeserver. | Accepted: the cost of one sign-in for all sites |
+| S5 | The homeserver cannot see or revoke one site | Per-site access lives in the browser; revoking the whole grant is the homeserver-side control. | Accepted until grant delegation |
+| S6 | A site gets encryption keys it should not keep | Keys need a Ring approval per scope, with a warning that they cannot be taken back. | Accepted: keys are permanent by protocol |
+| S7 | A prompt is spoofed by page content | Prompts are browser UI anchored to the address bar and name the origin the browser sees. | Mitigated by design |
 
 ## Adding to this document
 

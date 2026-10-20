@@ -74,7 +74,7 @@ S0 closed in October 2026. Final state of each gate:
 | Identifier grammar: PKD sites versus Pubky identities, search/fallback, malformed/Unicode input | Recorded in [IDENTIFIERS.md](IDENTIFIERS.md) |
 | TLS trust model: key binding, secure context, downgrade, mixed content, connection display | Recorded in [TLS_TRUST_MODEL.md](TLS_TRUST_MODEL.md), assuming PKResolve resolution and delegation |
 | Profile/avatar lookup and privacy defaults | Settled before identity-card work starts; no new lookups implemented |
-| Scoped-session design brief and origin-permission/XSS analysis | Settled before session-layer work starts |
+| Scoped-session design brief and origin-permission/XSS analysis | Recorded in [SESSIONS.md](SESSIONS.md) (#62) |
 | Threat model | Initial version in [THREAT_MODEL.md](THREAT_MODEL.md); each feature adds its section before it ships |
 | Google-service inventory/replacement policy | Idle Google requests reduced (#45); the full inventory continues as hardening work (T17 in [THREAT_MODEL.md](THREAT_MODEL.md)) |
 | Linux checkout/build isolation, resource/access limits, first-fetch runbook/evidence | Done: the designated builder produces every release |

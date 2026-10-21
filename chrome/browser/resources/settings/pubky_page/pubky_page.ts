@@ -11,6 +11,7 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import '../settings_page/settings_section.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {I18nMixinLit} from 'chrome://resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from 'chrome://resources/cr_elements/web_ui_listener_mixin_lit.js';
 
 import {getSearchManager} from '../search_settings.js';
@@ -21,7 +22,8 @@ import {PubkyBrowserProxyImpl} from './pubky_browser_proxy.js';
 import {getCss} from './pubky_page.css.js';
 import {getHtml} from './pubky_page.html.js';
 
-const SettingsPubkyPageElementBase = WebUiListenerMixinLit(CrLitElement);
+const SettingsPubkyPageElementBase =
+    WebUiListenerMixinLit(I18nMixinLit(CrLitElement));
 
 export class SettingsPubkyPageElement extends SettingsPubkyPageElementBase
     implements SettingsPlugin {

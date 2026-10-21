@@ -20,9 +20,11 @@
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/pubky_session/pubky_session_service.h"
+#include "components/url_formatter/elide_url.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -126,6 +128,10 @@ PubkyPageInfoSection::PubkyPageInfoSection(content::WebContents* contents,
                           base::Unretained(this)),
       l10n_util::GetStringUTF16(IDS_PUBKY_PAGE_INFO_DISCONNECT)));
   disconnect->SetProperty(views::kElementIdentifierKey, kDisconnectElementId);
+  disconnect->GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
+      IDS_PUBKY_PAGE_INFO_DISCONNECT_ACCESSIBLE_NAME,
+      url_formatter::FormatOriginForSecurityDisplay(
+          origin_, url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS)));
 }
 
 PubkyPageInfoSection::~PubkyPageInfoSection() = default;

@@ -52,6 +52,7 @@ export function getHtml(this: SettingsPubkyPageElement) {
             <div class="access secondary">${site.access}</div>
             <div class="since secondary">${site.since}</div>
             <cr-button class="remove" data-origin="${site.origin}"
+                aria-label="${this.i18n('pubkyRemoveSiteAriaLabel', site.site)}"
                 @click="${this.onRemoveSiteClick_}">
               $i18n{pubkyRemoveSite}
             </cr-button>

@@ -6,6 +6,7 @@
 import type {PubkyBrowserProxy, PubkyIdentity, SettingsPubkyPageElement} from 'chrome://settings/settings.js';
 import {PubkyBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -115,7 +116,11 @@ suite('PubkyPageTest', function() {
   test('RemovesASite', async function() {
     await initPage(SIGNED_IN);
     const rows = page.shadowRoot.querySelectorAll('.site-row');
-    rows[1]!.querySelector<HTMLElement>('.remove')!.click();
+    const remove = rows[1]!.querySelector<HTMLElement>('.remove')!;
+    assertEquals(
+        loadTimeData.getStringF('pubkyRemoveSiteAriaLabel', 'shop.pubky.app'),
+        remove.getAttribute('aria-label'));
+    remove.click();
     assertEquals(
         'https://shop.pubky.app',
         await browserProxy.whenCalled('removePubkySite'));

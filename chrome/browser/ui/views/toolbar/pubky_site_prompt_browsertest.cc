@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/run_until.h"
 #include "base/time/time.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -32,6 +33,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/widget/widget.h"
@@ -230,8 +232,15 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
   ASSERT_TRUE(section);
   EXPECT_TRUE(section->GetVisible());
 
-  Click(static_cast<views::Button*>(page_info->GetViewByElementId(
-      PubkyPageInfoSection::kDisconnectElementId)));
+  auto* disconnect = static_cast<views::Button*>(page_info->GetViewByElementId(
+      PubkyPageInfoSection::kDisconnectElementId));
+  ASSERT_TRUE(disconnect);
+  // The accessible name says which site the button disconnects.
+  EXPECT_NE(disconnect->GetViewAccessibility().GetCachedName().find(
+                base::ASCIIToUTF16(kSite)),
+            std::u16string::npos);
+
+  Click(disconnect);
   EXPECT_TRUE(SiteScopes(kSite).empty());
   EXPECT_FALSE(section->GetVisible());
   // Other sites keep their access.

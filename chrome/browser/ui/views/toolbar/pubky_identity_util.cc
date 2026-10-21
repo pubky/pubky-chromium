@@ -1,0 +1,60 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
+
+#include <algorithm>
+#include <memory>
+#include <utility>
+
+#include "base/i18n/case_conversion.h"
+#include "cc/paint/paint_flags.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/font_list.h"
+#include "ui/gfx/geometry/point_f.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/image/canvas_image_source.h"
+#include "ui/gfx/image/image_skia.h"
+
+namespace {
+
+class InitialAvatarSource : public gfx::CanvasImageSource {
+ public:
+  InitialAvatarSource(std::u16string initial, int size)
+      : gfx::CanvasImageSource(gfx::Size(size, size)),
+        initial_(std::move(initial)) {}
+
+  // gfx::CanvasImageSource:
+  void Draw(gfx::Canvas* canvas) override {
+    const float radius = size().width() / 2.0f;
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setColor(kPubkyAccentColor);
+    canvas->DrawCircle(gfx::PointF(radius, radius), radius, flags);
+
+    const gfx::FontList base_font;
+    const int target_size = std::max(8, size().height() * 9 / 20);
+    const gfx::FontList font =
+        base_font.DeriveWithSizeDelta(target_size - base_font.GetFontSize())
+            .DeriveWithWeight(gfx::Font::Weight::BOLD);
+    canvas->DrawStringRectWithFlags(initial_, font, kPubkyDarkColor,
+                                    gfx::Rect(size()),
+                                    gfx::Canvas::TEXT_ALIGN_CENTER);
+  }
+
+ private:
+  const std::u16string initial_;
+};
+
+}  // namespace
+
+ui::ImageModel PubkyIdentityAvatar(std::u16string_view label, int size) {
+  std::u16string initial = u"?";
+  if (!label.empty()) {
+    initial = base::i18n::ToUpper(label.substr(0, 1));
+  }
+  return ui::ImageModel::FromImageSkia(
+      gfx::ImageSkia(std::make_unique<InitialAvatarSource>(initial, size),
+                     gfx::Size(size, size)));
+}

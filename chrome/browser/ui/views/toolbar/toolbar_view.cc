@@ -109,6 +109,7 @@
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/split_tabs_button.h"
+#include "chrome/browser/ui/views/toolbar/pubky_identity_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_divider.h"
@@ -603,6 +604,15 @@ void ToolbarView::Init() {
     bool show_avatar_toolbar_button =
         AvatarToolbarButtonInterface::CanShowForProfile(browser_->GetProfile());
     avatar_->SetVisible(show_avatar_toolbar_button);
+  }
+
+  // Pubky: the identity button replaces the profile avatar button. The avatar
+  // button stays in the view tree, where other toolbar code expects it, but
+  // hidden. See pubky/SESSIONS.md.
+  pubky_identity_button_ =
+      AddChildView(std::make_unique<PubkyIdentityButton>(browser_));
+  if (avatar_) {
+    avatar_->SetVisible(false);
   }
 
   // Only manage the overflow button when there are at least some views
@@ -1720,6 +1730,10 @@ void ToolbarView::LayoutCommon() {
   // `app_menu_button_`.
   if (avatar_) {
     SetRefreshMargins(avatar_, avatar_->IsLabelPresentAndVisible());
+  }
+  if (pubky_identity_button_) {
+    SetRefreshMargins(pubky_identity_button_,
+                      !pubky_identity_button_->GetText().empty());
   }
 
   // Record whether there is leading interior margin available before zeroing it

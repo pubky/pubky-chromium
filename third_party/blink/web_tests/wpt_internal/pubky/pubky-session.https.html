@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<title>PubkySession forwards calls to the browser</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script type="module">
+import {MockPubkySessionHost, PubkyStatus} from './resources/mock-pubky-session-host.js';
+
+const host = new MockPubkySessionHost();
+
+function pubkyTest(func, name) {
+  promise_test(async t => {
+    host.reset();
+    await func(t);
+  }, name);
+}
+
+pubkyTest(async () => {
+  const session =
+      await navigator.pubky.requestSession(['/pub/example.com/:rw']);
+  assert_true(session instanceof PubkySession);
+  assert_equals(session.publicKey, 'pubkyuserkey');
+  assert_array_equals(host.requests[0].scopes, ['/pub/example.com/:rw']);
+}, 'requestSession() resolves to a session with the public key');
+
+pubkyTest(async () => {
+  const session = await navigator.pubky.requestSession(['/pub/app/:rw']);
+  await session.put(
+      '/pub/app/note.json', new TextEncoder().encode('{"a":1}'),
+      'application/json');
+  assert_equals(host.requests[1].contentType, 'application/json');
+
+  const response = await session.get('/pub/app/note.json');
+  assert_true(response instanceof Response);
+  assert_equals(response.status, 200);
+  assert_equals(response.headers.get('content-type'), 'application/json');
+  assert_object_equals(await response.json(), {a: 1});
+}, 'put() stores bytes that get() returns as a Response');
+
+pubkyTest(async () => {
+  const session = await navigator.pubky.requestSession(['/pub/app/:rw']);
+  await session.put('/pub/app/a', new Uint8Array([1]));
+  await session.put('/pub/app/b', new Uint8Array([2]).buffer);
+  assert_array_equals(
+      await session.list('/pub/app/', {limit: 10, shallow: true}),
+      ['pubky://pubkyuserkey/pub/app/a', 'pubky://pubkyuserkey/pub/app/b']);
+  const listing = host.requests.find(request => request.method === 'list');
+  assert_equals(listing.options.limit, 10);
+  assert_true(listing.options.shallow);
+  assert_false(listing.options.reverse);
+
+  await session.delete('/pub/app/a');
+  assert_array_equals(
+      await session.list('/pub/app/'), ['pubky://pubkyuserkey/pub/app/b']);
+}, 'list() and delete()');
+
+pubkyTest(async t => {
+  const session = await navigator.pubky.requestSession(['/pub/app/:r']);
+  await promise_rejects_dom(t, 'NotFoundError', session.get('/pub/app/none'));
+}, 'A missing file rejects with NotFoundError');
+
+const failures = [
+  [PubkyStatus.kNotAllowed, 'NotAllowedError'],
+  [PubkyStatus.kNotSupported, 'NotSupportedError'],
+  [PubkyStatus.kNotSignedIn, 'InvalidStateError'],
+  [PubkyStatus.kTooLarge, 'QuotaExceededError'],
+  [PubkyStatus.kNetworkError, 'NetworkError'],
+];
+for (const [status, name] of failures) {
+  pubkyTest(async t => {
+    host.status = status;
+    await promise_rejects_dom(
+        t, name, navigator.pubky.requestSession(['/pub/app/:r']));
+  }, `requestSession() maps a refusal to ${name}`);
+}
+
+pubkyTest(async t => {
+  const session = await navigator.pubky.requestSession(['/pub/app/:rw']);
+  host.status = PubkyStatus.kNotAllowed;
+  await promise_rejects_dom(t, 'NotAllowedError', session.get('/pub/other'));
+  await promise_rejects_dom(
+      t, 'NotAllowedError', session.put('/pub/other', new Uint8Array()));
+  await promise_rejects_dom(t, 'NotAllowedError', session.delete('/pub/other'));
+  await promise_rejects_dom(t, 'NotAllowedError', session.list('/pub/'));
+}, 'Calls outside the allowed scopes reject with NotAllowedError');
+
+pubkyTest(async t => {
+  host.status = PubkyStatus.kInvalidArgument;
+  await promise_rejects_js(
+      t, TypeError, navigator.pubky.requestSession(['/pub/../:rw']));
+}, 'An invalid scope rejects with TypeError');
+</script>

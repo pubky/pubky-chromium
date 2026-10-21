@@ -48,6 +48,7 @@
 
 class ActorTaskListBubble;
 class AvatarToolbarButton;
+class PubkyIdentityButton;
 class AvatarToolbarButtonInterface;
 class BatterySaverButton;
 class BrowserAppMenuButton;
@@ -101,6 +102,10 @@ class ToolbarView : public views::AccessiblePaneView,
   METADATA_HEADER(ToolbarView, views::AccessiblePaneView)
 
  public:
+  // The Pubky identity button, which replaces the avatar button.
+  PubkyIdentityButton* pubky_identity_button() {
+    return pubky_identity_button_;
+  }
   // Types of display mode this toolbar can have.
   enum class DisplayMode {
     kNormal,    // Normal toolbar with buttons, etc.
@@ -431,6 +436,8 @@ class ToolbarView : public views::AccessiblePaneView,
   // `toolbar_webview_->GetPinnedActionsContainer()`.
   raw_ptr<PinnedToolbarActions> pinned_toolbar_actions_ = nullptr;
   raw_ptr<AvatarToolbarButton> avatar_ = nullptr;
+  // Replaces `avatar_`, which stays in the view tree but hidden.
+  raw_ptr<PubkyIdentityButton> pubky_identity_button_ = nullptr;
   raw_ptr<MediaToolbarButton> media_button_ = nullptr;
   raw_ptr<BrowserAppMenuButton> app_menu_button_ = nullptr;
 

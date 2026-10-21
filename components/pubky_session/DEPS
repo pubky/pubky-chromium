@@ -1,0 +1,11 @@
+include_rules = [
+  "+components/keyed_service/core",
+  "+components/os_crypt/async",
+  "+net",
+  "+services/network/public",
+  "+services/network/test",
+  "+third_party/blake3/src",
+  "+third_party/boringssl/src/include",
+  "+third_party/tweetnacl/src",
+  "+url",
+]

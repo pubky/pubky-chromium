@@ -942,6 +942,10 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         ContentSettingsType::SUSPICIOUS_SITE_WARNING_DATA, delete_begin_,
         delete_end_, website_settings_filter);
 
+    host_content_settings_map_->ClearSettingsForOneTypeWithPredicate(
+        ContentSettingsType::PUBKY_SITE_ACCESS, delete_begin_, delete_end_,
+        website_settings_filter);
+
     PermissionDecisionAutoBlockerFactory::GetForProfile(profile_)
         ->RemoveEmbargoAndResetCounts(filter);
     if (base::FeatureList::IsEnabled(

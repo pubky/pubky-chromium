@@ -1,0 +1,20 @@
+Name: BLAKE3
+Short Name: blake3
+URL: https://github.com/BLAKE3-team/BLAKE3
+Version: 1.8.7
+Revision: f3149ec5bb5449af877ba20377a11008ff499fa2
+Update Mechanism: Manual
+License: Apache-2.0
+License File: LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+The official C implementation of the BLAKE3 hash function. Used by
+//components/pubky_session to derive Pubky relay channel IDs.
+
+Local Modifications:
+Only the portable implementation is included: blake3.h, blake3.c,
+blake3_impl.h, blake3_portable.c and blake3_dispatch.c from c/. SIMD back ends
+are disabled with BLAKE3_NO_* defines in BUILD.gn. The project is also offered
+under CC0-1.0 and Apache-2.0 WITH LLVM-exception (LICENSE_CC0, LICENSE_A2LLVM).

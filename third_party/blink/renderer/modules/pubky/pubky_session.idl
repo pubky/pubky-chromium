@@ -1,0 +1,25 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Storage access on the user's homeserver within the scopes the user allowed
+// for this origin. The browser makes each call with its own credentials.
+[
+    Exposed=Window,
+    SecureContext
+] interface PubkySession {
+    // The identity's public key, z-base-32.
+    readonly attribute DOMString publicKey;
+
+    [CallWith=ScriptState, RaisesException]
+    Promise<Response> get(USVString path);
+    [CallWith=ScriptState, RaisesException]
+    Promise<undefined> put(USVString path, BufferSource body,
+                           optional DOMString contentType = "");
+    [CallWith=ScriptState, RaisesException, ImplementedAs=Delete]
+    Promise<undefined> delete(USVString path);
+    // Resolves to pubky:// URLs.
+    [CallWith=ScriptState, RaisesException]
+    Promise<sequence<USVString>> list(USVString path,
+                                      optional PubkyListOptions options = {});
+};

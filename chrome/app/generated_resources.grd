@@ -306,6 +306,7 @@ are declared in tools/grit/grit_args.gni.
 
       <!-- Profiles specific strings -->
       <part file="profiles_strings.grdp" />
+      <part file="pubky_strings.grdp" />
 
       <!-- Shortcut Input specific strings -->
       <part file="shortcut_input_strings.grdp" />

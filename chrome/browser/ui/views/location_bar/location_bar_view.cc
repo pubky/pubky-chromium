@@ -67,6 +67,7 @@
 #include "chrome/browser/ui/views/location_bar/location_icon_state_helper.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
+#include "chrome/browser/ui/views/location_bar/pubky_identity_chip_view.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_context_menu.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
@@ -494,6 +495,10 @@ void LocationBarView::Init() {
           page_action_items, page_actions::PageActionPropertiesProvider(),
           page_action_params));
 
+  pubky_identity_chip_ = AddChildView(std::make_unique<PubkyIdentityChipView>(
+      base::BindRepeating(base::IgnoreResult(&LocationBarView::ShowPageInfoDialog),
+                          base::Unretained(this))));
+
   auto clear_all_button = views::CreateVectorImageButton(base::BindRepeating(
       static_cast<void (OmniboxView::*)(const std::u16string&)>(
           &OmniboxView::SetUserText),
@@ -917,6 +922,8 @@ void LocationBarView::Layout(PassKey) {
                                 ? kTrailingEdgePaddingForAim
                                 : trailing_decorations_edge_padding);
   }
+  add_trailing_decoration(pubky_identity_chip_, /*intra_item_padding=*/0,
+                          /*edge_padding=*/trailing_decorations_edge_padding);
   add_trailing_decoration(ai_mode_hint_label_, /*intra_item_padding=*/0,
                           /*edge_padding=*/trailing_decorations_edge_padding);
   for (ContentSettingImageView* view :
@@ -1076,6 +1083,7 @@ void LocationBarView::Update(WebContents* contents) {
   // So we can determine whether page actions should be hidden or not.
   RefreshPageActionContainerViewAndIconsVisibility(
       /*should_hide_page_actions=*/ShouldHidePageActionIcons());
+  pubky_identity_chip_->Update(GetWebContents());
 
   OnChanged();  // NOTE: Triggers layout.
 

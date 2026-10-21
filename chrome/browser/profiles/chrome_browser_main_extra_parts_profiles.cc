@@ -208,6 +208,7 @@
 #include "chrome/browser/profile_resetter/triggered_profile_resetter_factory.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
 #include "chrome/browser/profiles/renderer_updater_factory.h"
+#include "chrome/browser/pubky_session/pubky_session_service_factory.h"
 #include "chrome/browser/push_messaging/push_messaging_service_factory.h"
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
 #include "chrome/browser/reduce_accept_language/reduce_accept_language_factory.h"
@@ -1375,6 +1376,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #endif
   ProtocolHandlerRegistryFactory::GetInstance();
   ProviderStateServiceFactory::GetInstance();
+  PubkySessionServiceFactory::GetInstance();
   PushMessagingServiceFactory::GetInstance();
 #if BUILDFLAG(IS_ANDROID)
   readaloud::ReadAloudServiceFactory::GetInstance();

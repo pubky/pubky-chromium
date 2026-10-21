@@ -1877,6 +1877,7 @@ if (!is_android) {
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile_util",
       "//chrome/browser/profiles/keep_alive",
+      "//chrome/browser/pubky_session:browser_tests",
       "//chrome/browser/push_messaging",
       "//chrome/browser/push_messaging:browser_tests",
       "//chrome/browser/push_messaging:service_impl_public",

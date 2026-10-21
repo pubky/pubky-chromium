@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/views/page_info/page_info_security_content_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/page_info/permission_toggle_row_view.h"
+#include "chrome/browser/ui/views/page_info/pubky_page_info_section.h"
 #include "chrome/browser/ui/views/page_info/star_rating_view.h"
 #include "chrome/browser/ui/views/sub_apps_permission_explanation.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
@@ -175,6 +176,9 @@ PageInfoMainView::PageInfoMainView(
   permissions_view_ = AddChildView(std::make_unique<views::View>());
   permissions_view_->SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical);
+
+  AddChildView(std::make_unique<PubkyPageInfoSection>(
+      ui_delegate_->GetWebContents(), presenter_->site_url()));
 
   SetProperty(views::kElementIdentifierKey, kMainLayoutElementId);
 

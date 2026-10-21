@@ -7103,6 +7103,7 @@ interface Navigator
     getter presentation
     getter product
     getter productSub
+    getter pubky
     getter rtc
     getter scheduling
     getter serial
@@ -8142,6 +8143,20 @@ interface ProtectedAudience
     attribute @@toStringTag
     method constructor
     method queryFeatureSupport
+interface PubkyCapabilities
+    attribute @@toStringTag
+    getter supportsPkdns
+    getter supportsRawPublicKeyTls
+    method constructor
+    method requestSession
+interface PubkySession
+    attribute @@toStringTag
+    getter publicKey
+    method constructor
+    method delete
+    method get
+    method list
+    method put
 interface PublicKeyCredential : Credential
     static method getClientCapabilities
     static method isUserVerifyingPlatformAuthenticatorAvailable

@@ -242,6 +242,7 @@ build_webui_tests("build") {
       "live_translate_test.ts",
       "metrics_reporting_test.ts",
       "people_page_manage_profile_test.ts",
+      "pubky_page_test.ts",
       "relaunch_confirmation_dialog_test.ts",
       "spell_check_page_metrics_test_browser.ts",
       "spell_check_page_test.ts",

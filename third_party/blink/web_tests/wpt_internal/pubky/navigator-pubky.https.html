@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<title>navigator.pubky.requestSession is available in secure contexts</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+test(() => {
+  assert_true(window.isSecureContext);
+  assert_true(navigator.pubky instanceof PubkyCapabilities);
+  assert_equals(typeof navigator.pubky.requestSession, 'function');
+}, 'navigator.pubky has requestSession() in a secure context');
+
+test(() => {
+  assert_equals(typeof PubkySession, 'function');
+  assert_throws_js(TypeError, () => new PubkySession());
+}, 'PubkySession is not constructible');
+
+promise_test(async t => {
+  await promise_rejects_js(t, TypeError, navigator.pubky.requestSession());
+}, 'requestSession() requires scopes');
+</script>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<title>navigator.pubky has no sessions outside secure contexts</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+test(() => {
+  assert_false(window.isSecureContext);
+  // The capability object stays available on HTTP; sessions do not.
+  assert_true(navigator.pubky instanceof PubkyCapabilities);
+  assert_false('requestSession' in navigator.pubky);
+  assert_equals(typeof PubkySession, 'undefined');
+}, 'requestSession() and PubkySession are not exposed');
+</script>

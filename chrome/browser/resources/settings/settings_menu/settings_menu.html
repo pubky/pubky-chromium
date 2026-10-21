@@ -86,6 +86,13 @@
       <cr-menu-selector id="menu" selectable="a:not(#extensionsLink)"
           attr-for-selected="href" on-iron-activate="onSelectorActivate_"
           on-click="onLinkClick_" selected-attribute="selected">
+<if expr="not is_chromeos">
+        <a role="menuitem" id="pubky" href="/pubky" class="cr-nav-menu-item">
+          <cr-icon icon="settings:person"></cr-icon>
+          <span class="menu-label">$i18n{pubkyPageTitle}</span>
+          <cr-ripple></cr-ripple>
+        </a>
+</if>
         <a role="menuitem"
             id="people" href="/people" hidden="[[!pageVisibility_.people]]"
             class="cr-nav-menu-item">

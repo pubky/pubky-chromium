@@ -102,6 +102,8 @@ group("gn_all") {
       "//codelabs",
       "//components:components_unittests",
       "//components/gwp_asan:gwp_asan_unittests",
+      "//components/pubky_session/core:pubky_session_core_unittests",
+      "//components/pubky_session:pubky_session_unittests",
       "//infra/orchestrator:orchestrator_all",
       "//net:net_unittests",
       "//sandbox:sandbox_unittests",

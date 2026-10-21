@@ -155,6 +155,11 @@ function createRoutes(): SettingsRoutes {
 
   const visibility = pageVisibility || {};
 
+  // <if expr="not is_chromeos">
+  r.PUBKY = r.BASIC.createSection(
+      '/pubky', 'pubky', loadTimeData.getString('pubkyPageTitle'));
+  // </if>
+
   if (visibility.people !== false) {
     r.PEOPLE = r.BASIC.createSection(
         '/people', 'people', loadTimeData.getString('peoplePageTitle'));

@@ -19,6 +19,7 @@ chrome/app/os_settings_strings.grdp
 chrome/app/password_manager_ui_strings.grdp
 chrome/app/printing_strings.grdp
 chrome/app/profiles_strings.grdp
+chrome/app/pubky_strings.grdp
 chrome/app/resources/generated_resources_af.xtb
 chrome/app/resources/generated_resources_am.xtb
 chrome/app/resources/generated_resources_ar.xtb

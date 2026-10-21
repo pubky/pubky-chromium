@@ -43,10 +43,18 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   remembered for that site until revoked.
 - **Escalation.** A request for scopes beyond those already allowed prompts
   again for the difference.
-- **Private storage and keys.** A request for `/priv/` paths or the `e` action
-  needs a new Ring approval for that scope only, added to the browser's
-  approval. The prompt warns that encryption keys are permanent: revoking does
+- **Private storage.** A request for `/priv/` paths, or any scope outside the
+  browser's approval, needs a new Ring approval for that scope only. The
+  prompt shows that approval's QR code instead of Allow: approving in Ring is
+  the answer, and Cancel withdraws it. The browser holds the result as a
+  separate grant next to the sign-in grant and uses whichever grant covers a
+  path.
+- **Encryption keys.** Deferred. A request with the `e` action fails with
+  `NotSupportedError` until the key API is decided, because keys must not
+  reach the page and pubky-core leaves the content encryption format to each
+  app. When it comes, the prompt warns that keys are permanent: revoking does
   not take them back, and a key for a directory covers everything below it.
+  Decided in #71.
 - **Revocation.** Page info and settings list each site's access and remove it
   at once. A removed site's next call fails.
 - **Scripts on an approved site.** Any script on an allowed origin can use that
@@ -54,6 +62,9 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   instant revocation; there is no per-request confirmation.
 - **Eligible origins.** Secure contexts only: HTTPS sites, key hosts and
   `http://localhost`. Workers and opaque origins get no access.
+- **Frames.** The top-level document and same-origin iframes: the document's
+  origin must match every ancestor's. A cross-origin embed, or a frame below
+  one, gets `NotAllowedError`. Decided in #71.
 
 ## Identities
 
@@ -62,6 +73,49 @@ It builds on Pubky v0.10 grant authentication (`pubky-core`
   browser profile, so cookies, history and storage stay separate per identity.
 - **Identity button states.** Signed out (Sign in), waiting for Ring, signed in
   (avatar and name), approval expired, Incognito.
+
+## Implementation
+
+Decided with the owner in October 2026 while starting
+[#68](https://github.com/pubky/pubky-chromium/issues/68)–[#73](https://github.com/pubky/pubky-chromium/issues/73):
+
+- **Protocol in C++ on BoringSSL.** Ed25519, HPKE (X25519-HKDF-SHA256 with
+  ChaCha20-Poly1305) and randomness come from BoringSSL. BLAKE3 (relay channel
+  IDs) and XSalsa20-Poly1305 (bare grant approvals) come from small vendored C
+  libraries, `//third_party/blake3` and `//third_party/tweetnacl`.
+- **Checked against the SDK.** `//components/pubky_session/core` tests run
+  against fixtures generated from the Pubky Rust SDK at a pinned revision by
+  `//pubky/tools/session_vectors`.
+- **Storage.** The client key, grant and bearer live in a per-profile file
+  encrypted with Chromium's OS-backed encryption, as cookies and passwords are.
+- **Finding the homeserver.** After approval the browser fetches the user's
+  signed PKARR packet from the pkarr relays (`pkarr.pubky.app`, then
+  `pkarr.pubky.org`), verifies its Ed25519 signature itself and reads the
+  `_pubky` record's target, as the SDK does. Relays can withhold the record
+  but cannot forge it. Decided in #69.
+- **Sign-in format.** Sign-in asks for a bare grant, which every Ring release
+  with grants supports; signed approvals (HPKE) are used only when a site asks
+  for encryption keys.
+- **Site API surface.** `requestSession(scopes)` resolves to a `PubkySession`
+  with `publicKey`, `get(path)` (a `Response`), `put(path, bytes,
+  contentType)`, `delete(path)` and `list(dir, {limit, cursor, shallow,
+  reverse})` (`pubky://` URLs). Paths are canonical storage paths; anything
+  else is a `TypeError`. Refusals are `NotAllowedError`, a signed-out or
+  expired browser is `InvalidStateError`. Calls use path addressing,
+  `/storage/<user>/<path>`, on the user's homeserver. Public reads work
+  without a bearer, so they continue while the approval is expired.
+- **Site UI.** The prompt anchors to the address bar like a permission
+  prompt, asks only for scopes the site lacks, and closes, as a refusal, when
+  the user leaves the page or switches tabs. A connected site shows a chip
+  with the identity in the address bar; it opens page info, whose "Pubky
+  identity" section lists the access and disconnects the site.
+  `chrome://settings/pubky`, also reached from the identity panel's "Manage
+  sites", shows the identity, its approval and homeserver, every site with
+  its access and first-grant date and a Remove button, and sign-out.
+- **Site records.** Each site's scopes live in the `PUBKY_SITE_ACCESS` website
+  setting with the identity's key and the date of the first grant. A record
+  for another key does not count, so a different identity starts over.
+  Clearing site settings removes them.
 
 ## Lifetime
 

@@ -846,6 +846,25 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
+void AddPubkyIdentityStrings(content::WebUIDataSource* html_source) {
+  static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"pubkyPageTitle", IDS_PUBKY_SETTINGS_TITLE},
+      {"pubkyCopyKey", IDS_PUBKY_IDENTITY_COPY_KEY},
+      {"pubkySites", IDS_PUBKY_SETTINGS_SITES},
+      {"pubkySiteColumn", IDS_PUBKY_SETTINGS_SITE_COLUMN},
+      {"pubkyAccessColumn", IDS_PUBKY_SETTINGS_ACCESS_COLUMN},
+      {"pubkySinceColumn", IDS_PUBKY_SETTINGS_SINCE_COLUMN},
+      {"pubkyRemoveSite", IDS_PUBKY_SETTINGS_REMOVE_SITE},
+      {"pubkyNoSites", IDS_PUBKY_SETTINGS_NO_SITES},
+      {"pubkySignOutTitle", IDS_PUBKY_IDENTITY_SIGN_OUT},
+      {"pubkySignOutBody", IDS_PUBKY_SETTINGS_SIGN_OUT_BODY},
+      {"pubkySignOutButton", IDS_PUBKY_IDENTITY_SIGN_OUT_SHORT},
+      {"pubkySignedOut", IDS_PUBKY_SETTINGS_SIGNED_OUT},
+      {"pubkyUnavailable", IDS_PUBKY_SETTINGS_UNAVAILABLE},
+  };
+  html_source->AddLocalizedStrings(kLocalizedStrings);
+}
+
 void AddDefaultBrowserStrings(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"defaultBrowser", IDS_SETTINGS_DEFAULT_BROWSER},
@@ -4730,6 +4749,7 @@ void AddLocalizedStrings(content::WebUIDataSource* html_source,
 
 #if !BUILDFLAG(IS_CHROMEOS)
   AddDefaultBrowserStrings(html_source);
+  AddPubkyIdentityStrings(html_source);
   AddImportDataStrings(html_source);
   AddSystemStrings(html_source);
 #endif

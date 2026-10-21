@@ -52,6 +52,7 @@ export interface SettingsRoutes {
   PRELOADING: Route;
   PRIVACY: Route;
   PRIVACY_GUIDE: Route;
+  PUBKY: Route;
   RESET: Route;
   RESET_DIALOG: Route;
   SAFETY_HUB: Route;

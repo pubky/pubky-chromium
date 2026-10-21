@@ -1,0 +1,31 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# TweetNaCl provides XSalsa20-Poly1305 (crypto_secretbox), which BoringSSL does
+# not. Pubky uses only crypto_secretbox_open, to read bare grant approvals.
+
+config("tweetnacl_config") {
+  include_dirs = [ "src" ]
+}
+
+static_library("tweetnacl") {
+  sources = [
+    "src/tweetnacl.c",
+    "src/tweetnacl.h",
+  ]
+
+  # The host supplies randomness; rename the hook so it cannot collide.
+  defines = [ "randombytes=pubky_tweetnacl_randombytes" ]
+  public_configs = [ ":tweetnacl_config" ]
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+  if (is_clang) {
+    cflags = [
+      "-Wno-shorten-64-to-32",
+      "-Wno-sign-compare",
+      "-Wno-unused-function",
+      "-Wno-unused-variable",
+    ]
+  }
+}

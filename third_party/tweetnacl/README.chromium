@@ -1,0 +1,21 @@
+Name: TweetNaCl
+Short Name: tweetnacl
+URL: https://tweetnacl.cr.yp.to/
+Version: 20140427
+Update Mechanism: Manual
+License: Public Domain
+License File: LICENSE
+Security Critical: yes
+Shipped: yes
+
+Description:
+A compact implementation of the NaCl cryptography library. Used by
+//components/pubky_session for XSalsa20-Poly1305 (crypto_secretbox_open),
+which Pubky's bare grant approvals use and BoringSSL does not provide.
+
+Local Modifications:
+None to the sources. tweetnacl.c and tweetnacl.h are the 20140427 release
+files (SHA-256 02e65bc3013ff2168983365e55906bc783c4c7e0a60d8100f17bb303a17175c4
+and 43f29ad721d9927b747b0100ab4160c119e7bb180c7c98a66e4bf79d31244287).
+BUILD.gn renames the randombytes hook to pubky_tweetnacl_randombytes, which
+//components/pubky_session/core provides.

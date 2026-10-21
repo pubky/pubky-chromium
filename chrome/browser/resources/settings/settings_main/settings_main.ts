@@ -22,6 +22,7 @@ import '../reset_page/reset_profile_banner.js';
 import '../search_page/search_page_index.js';
 // <if expr="not is_chromeos">
 import '../default_browser_page/default_browser_page.js';
+import '../pubky_page/pubky_page.js';
 
 // </if>
 

@@ -35,6 +35,11 @@
 
 namespace {
 
+// Hosts that resolve without DNS: this fork's resolver ignores the test host
+// rules, and CERT_OK covers both. They are distinct origins.
+constexpr char kSite[] = "localhost";
+constexpr char kOtherSite[] = "127.0.0.1";
+
 using pubky_session::Capability;
 using pubky_session::PubkySessionService;
 
@@ -93,7 +98,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
  protected:
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
     https_server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
     ASSERT_TRUE(https_server_.Start());
     interceptor_ = std::make_unique<content::URLLoaderInterceptor>(
@@ -195,10 +200,10 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        AllowedScopesAreRememberedForTheSite) {
-  SignInAndOpen("a.test");
+  SignInAndOpen(kSite);
   EXPECT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), UserKey());
   EXPECT_EQ(access_requests_, std::vector<std::string>({"/pub/a.test/:rw"}));
-  EXPECT_EQ(pubky_session::GetSiteScopes(Settings(), Origin("a.test"),
+  EXPECT_EQ(pubky_session::GetSiteScopes(Settings(), Origin(kSite),
                                          FilledKey(2)),
             *pubky_session::ParseCapabilities("/pub/a.test/:rw"));
 
@@ -212,16 +217,16 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, ADeclinedRequestRejects) {
   allow_ = false;
-  SignInAndOpen("a.test");
+  SignInAndOpen(kSite);
   EXPECT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), "NotAllowedError");
-  EXPECT_TRUE(pubky_session::GetSiteScopes(Settings(), Origin("a.test"),
+  EXPECT_TRUE(pubky_session::GetSiteScopes(Settings(), Origin(kSite),
                                            FilledKey(2))
                   .empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, EnforcesTheSiteScopes) {
-  Allow("a.test", "/pub/a.test/:r");
-  SignInAndOpen("a.test");
+  Allow(kSite, "/pub/a.test/:r");
+  SignInAndOpen(kSite);
   ASSERT_EQ(RequestSession(Tab(), "['/pub/a.test/:r']"), UserKey());
   EXPECT_TRUE(access_requests_.empty());
 
@@ -242,8 +247,8 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, EnforcesTheSiteScopes) {
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, WritesWithinTheScope) {
-  Allow("a.test", "/pub/a.test/:rw");
-  SignInAndOpen("a.test");
+  Allow(kSite, "/pub/a.test/:rw");
+  SignInAndOpen(kSite);
   ASSERT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), UserKey());
   EXPECT_EQ(Call(Tab(), "session.put('/pub/a.test/x', new Uint8Array([1]))"),
             "undefined");
@@ -252,21 +257,21 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, WritesWithinTheScope) {
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        RevocationTakesEffectOnTheNextCall) {
-  Allow("a.test", "/pub/a.test/:rw");
-  SignInAndOpen("a.test");
+  Allow(kSite, "/pub/a.test/:rw");
+  SignInAndOpen(kSite);
   ASSERT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), UserKey());
   ASSERT_EQ(Call(Tab(), "session.get('/pub/a.test/hello.txt')"
                         ".then(r => r.text())"),
             "hello");
 
-  pubky_session::RemoveSiteAccess(Settings(), Origin("a.test"));
+  pubky_session::RemoveSiteAccess(Settings(), Origin(kSite));
   EXPECT_EQ(Call(Tab(), "session.get('/pub/a.test/hello.txt')"),
             "NotAllowedError");
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, RejectsNonCanonicalPaths) {
-  Allow("a.test", "/pub/a.test/:rw");
-  SignInAndOpen("a.test");
+  Allow(kSite, "/pub/a.test/:rw");
+  SignInAndOpen(kSite);
   ASSERT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), UserKey());
   for (const char* call :
        {"session.get('/pub/a.test/../b.test/x')", "session.get('pub/a.test/x')",
@@ -280,16 +285,16 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, RejectsNonCanonicalPaths) {
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, RefusesEncryptionKeys) {
-  SignInAndOpen("a.test");
+  SignInAndOpen(kSite);
   EXPECT_EQ(RequestSession(Tab(), "['/pub/a.test/:rwe']"),
             "NotSupportedError");
   EXPECT_TRUE(access_requests_.empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, OnlySameOriginFrames) {
-  Allow("a.test", "/pub/a.test/:r");
-  Allow("b.test", "/pub/b.test/:r");
-  SignInAndOpen("a.test");
+  Allow(kSite, "/pub/a.test/:r");
+  Allow(kOtherSite, "/pub/b.test/:r");
+  SignInAndOpen(kSite);
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "for (const id of ['same', 'cross']) {"
@@ -298,9 +303,9 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, OnlySameOriginFrames) {
       "  document.body.appendChild(frame);"
       "}"));
   ASSERT_TRUE(content::NavigateIframeToURL(
-      Tab(), "same", https_server_.GetURL("a.test", "/title1.html")));
+      Tab(), "same", https_server_.GetURL(kSite, "/title1.html")));
   ASSERT_TRUE(content::NavigateIframeToURL(
-      Tab(), "cross", https_server_.GetURL("b.test", "/title1.html")));
+      Tab(), "cross", https_server_.GetURL(kOtherSite, "/title1.html")));
 
   content::RenderFrameHost* main_frame = Tab()->GetPrimaryMainFrame();
   EXPECT_EQ(RequestSession(content::ChildFrameAt(main_frame, 0),
@@ -314,9 +319,9 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, OnlySameOriginFrames) {
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        AccessBelongsToTheIdentityThatAllowedIt) {
   pubky_session::AllowSiteScopes(
-      Settings(), Origin("a.test"), FilledKey(9),
+      Settings(), Origin(kSite), FilledKey(9),
       *pubky_session::ParseCapabilities("/pub/a.test/:rw"));
-  SignInAndOpen("a.test");
+  SignInAndOpen(kSite);
   EXPECT_EQ(RequestSession(Tab(), "['/pub/a.test/:rw']"), UserKey());
   EXPECT_EQ(access_requests_, std::vector<std::string>({"/pub/a.test/:rw"}));
 }
@@ -325,7 +330,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        ASignedOutRequestOpensSignInAndContinues) {
   ASSERT_EQ(Service()->state(), PubkySessionService::State::kSignedOut);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server_.GetURL("a.test", "/title1.html")));
+      browser(), https_server_.GetURL(kSite, "/title1.html")));
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "window.result = navigator.pubky.requestSession(['/pub/a.test/:rw'])"
@@ -339,7 +344,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        PrivateScopesWaitForARingApproval) {
-  SignInAndOpen("a.test");
+  SignInAndOpen(kSite);
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "window.result = navigator.pubky.requestSession(['/priv/a.test/:rw'])"
@@ -354,7 +359,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
 
   Service()->CancelSignIn();
   EXPECT_EQ(content::EvalJs(Tab(), "window.result"), "NotAllowedError");
-  EXPECT_TRUE(pubky_session::GetSiteScopes(Settings(), Origin("a.test"),
+  EXPECT_TRUE(pubky_session::GetSiteScopes(Settings(), Origin(kSite),
                                            FilledKey(2))
                   .empty());
 }

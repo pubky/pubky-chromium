@@ -39,6 +39,11 @@
 
 namespace {
 
+// Hosts that resolve without DNS: this fork's resolver ignores the test host
+// rules, and CERT_OK covers both. They are distinct origins.
+constexpr char kSite[] = "localhost";
+constexpr char kOtherSite[] = "127.0.0.1";
+
 using pubky_session::PubkySessionService;
 
 pubky_session::Key FilledKey(uint8_t byte) {
@@ -72,7 +77,7 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
  protected:
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
     https_server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
     ASSERT_TRUE(https_server_.Start());
     ASSERT_TRUE(base::test::RunUntil([&] {
@@ -143,7 +148,7 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, AllowIsRemembered) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/pub/a.test/:rw']");
   PubkySitePromptView* prompt = WaitForPrompt();
   ASSERT_TRUE(prompt);
@@ -151,49 +156,49 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, AllowIsRemembered) {
   prompt->AcceptDialog();
   EXPECT_EQ(Result(), pubky_session::EncodeZ32(FilledKey(2)));
   WaitForPromptToClose();
-  EXPECT_EQ(SiteScopes("a.test"),
+  EXPECT_EQ(SiteScopes(kSite),
             *pubky_session::ParseCapabilities("/pub/a.test/:rw"));
 
   // The answer holds for the site; a reload asks nothing.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/pub/a.test/:r']");
   EXPECT_EQ(Result(), pubky_session::EncodeZ32(FilledKey(2)));
   EXPECT_FALSE(PubkySitePromptView::GetForTesting());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, DontAllowRejects) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/pub/a.test/:rw']");
   ASSERT_TRUE(WaitForPrompt());
   PubkySitePromptView::GetForTesting()->CancelDialog();
   EXPECT_EQ(Result(), "NotAllowedError");
-  EXPECT_TRUE(SiteScopes("a.test").empty());
+  EXPECT_TRUE(SiteScopes(kSite).empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
                        EscalationAsksOnlyForTheDifference) {
-  Allow("a.test", "/pub/a.test/:r");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  Allow(kSite, "/pub/a.test/:r");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/pub/a.test/:r', '/pub/shared/:rw']");
   ASSERT_TRUE(WaitForPrompt());
   PubkySitePromptView::GetForTesting()->AcceptDialog();
   EXPECT_EQ(Result(), pubky_session::EncodeZ32(FilledKey(2)));
-  EXPECT_EQ(SiteScopes("a.test"),
+  EXPECT_EQ(SiteScopes(kSite),
             *pubky_session::ParseCapabilities("/pub/a.test/:r,/pub/shared/:rw"));
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, LeavingThePageCloses) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/pub/a.test/:rw']");
   ASSERT_TRUE(WaitForPrompt());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("b.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kOtherSite)));
   WaitForPromptToClose();
-  EXPECT_TRUE(SiteScopes("a.test").empty());
+  EXPECT_TRUE(SiteScopes(kSite).empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
                        PrivateScopesShowTheRingApproval) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   StartRequest("['/priv/a.test/:rw']");
   PubkySitePromptView* prompt = WaitForPrompt();
   ASSERT_TRUE(prompt);
@@ -206,14 +211,14 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
   prompt->CancelDialog();
   EXPECT_EQ(Result(), "NotAllowedError");
   EXPECT_TRUE(Service()->scope_approval_link().empty());
-  EXPECT_TRUE(SiteScopes("a.test").empty());
+  EXPECT_TRUE(SiteScopes(kSite).empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
                        PageInfoDisconnectsTheSite) {
-  Allow("a.test", "/pub/a.test/:rw");
-  Allow("b.test", "/pub/b.test/:rw");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  Allow(kSite, "/pub/a.test/:rw");
+  Allow(kOtherSite, "/pub/b.test/:rw");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   BrowserView::GetBrowserViewForBrowser(browser())
       ->GetLocationBarView()
       ->ShowPageInfoDialog();
@@ -227,14 +232,14 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
 
   Click(static_cast<views::Button*>(page_info->GetViewByElementId(
       PubkyPageInfoSection::kDisconnectElementId)));
-  EXPECT_TRUE(SiteScopes("a.test").empty());
+  EXPECT_TRUE(SiteScopes(kSite).empty());
   EXPECT_FALSE(section->GetVisible());
   // Other sites keep their access.
-  EXPECT_FALSE(SiteScopes("b.test").empty());
+  EXPECT_FALSE(SiteScopes(kOtherSite).empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, PageInfoHidesWithoutAccess) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   BrowserView::GetBrowserViewForBrowser(browser())
       ->GetLocationBarView()
       ->ShowPageInfoDialog();
@@ -248,23 +253,23 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, PageInfoHidesWithoutAccess) {
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, ChipFollowsTheSite) {
-  Allow("a.test", "/pub/a.test/:rw");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  Allow(kSite, "/pub/a.test/:rw");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   EXPECT_TRUE(Chip()->GetVisible());
   EXPECT_EQ(Chip()->GetText(), u"Marcos");
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("b.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kOtherSite)));
   EXPECT_FALSE(Chip()->GetVisible());
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   EXPECT_TRUE(Chip()->GetVisible());
-  pubky_session::RemoveSiteAccess(Settings(), Origin("a.test"));
+  pubky_session::RemoveSiteAccess(Settings(), Origin(kSite));
   EXPECT_FALSE(Chip()->GetVisible());
 }
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, ChipHidesAfterSignOut) {
-  Allow("a.test", "/pub/a.test/:rw");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url("a.test")));
+  Allow(kSite, "/pub/a.test/:rw");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), Url(kSite)));
   ASSERT_TRUE(Chip()->GetVisible());
   Service()->SignOut();
   EXPECT_FALSE(Chip()->GetVisible());

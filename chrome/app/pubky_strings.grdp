@@ -172,6 +172,9 @@
   <message name="IDS_PUBKY_PAGE_INFO_DISCONNECT" desc="Button in page info that removes the site's access to the user's Pubky identity.">
     Disconnect this site
   </message>
+  <message name="IDS_PUBKY_PAGE_INFO_DISCONNECT_ACCESSIBLE_NAME" desc="Accessible name of the page info button that removes the site's access to the user's Pubky identity. SITE is the site's origin.">
+    Disconnect this site (<ph name="SITE">$1<ex>example.com</ex></ph>)
+  </message>
   <message name="IDS_PUBKY_CHIP_TOOLTIP" desc="Tooltip of the address bar chip that shows which Pubky identity the current site uses. NAME is the user's name or a short form of their key.">
     This site uses your Pubky identity, <ph name="NAME">$1<ex>Marcos</ex></ph>
   </message>
@@ -198,6 +201,9 @@
   </message>
   <message name="IDS_PUBKY_SETTINGS_REMOVE_SITE" desc="Button that removes a site's access to the user's Pubky identity.">
     Remove
+  </message>
+  <message name="IDS_PUBKY_SETTINGS_REMOVE_SITE_ACCESSIBLE_NAME" desc="Accessible name of the Remove button in one row of the list of sites using the Pubky identity. SITE is the site in that row.">
+    Remove access for <ph name="SITE">$1<ex>example.com</ex></ph>
   </message>
   <message name="IDS_PUBKY_SETTINGS_NO_SITES" desc="Shown instead of the list when no site uses the Pubky identity.">
     No site uses this identity yet.

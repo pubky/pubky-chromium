@@ -855,6 +855,8 @@ void AddPubkyIdentityStrings(content::WebUIDataSource* html_source) {
       {"pubkyAccessColumn", IDS_PUBKY_SETTINGS_ACCESS_COLUMN},
       {"pubkySinceColumn", IDS_PUBKY_SETTINGS_SINCE_COLUMN},
       {"pubkyRemoveSite", IDS_PUBKY_SETTINGS_REMOVE_SITE},
+      {"pubkyRemoveSiteAriaLabel",
+       IDS_PUBKY_SETTINGS_REMOVE_SITE_ACCESSIBLE_NAME},
       {"pubkyNoSites", IDS_PUBKY_SETTINGS_NO_SITES},
       {"pubkySignOutTitle", IDS_PUBKY_IDENTITY_SIGN_OUT},
       {"pubkySignOutBody", IDS_PUBKY_SETTINGS_SIGN_OUT_BODY},

@@ -418,6 +418,11 @@ after discussions on the right group.
       <annotation id="iwa_dev_ui_web_bundle"/>
       <annotation id="ttc_model_execution"/>
       <annotation id="pubky_explicit_update_package"/>
+      <annotation id="pubky_session_relay"/>
+      <annotation id="pubky_session_pkarr"/>
+      <annotation id="pubky_session_homeserver"/>
+      <annotation id="pubky_session_profile"/>
+      <annotation id="pubky_session_storage"/>
     </sender>
   </group>
   <group name="Admin Features">

@@ -122,7 +122,7 @@ constexpr net::NetworkTrafficAnnotationTag kHomeserverTrafficAnnotation =
           "The grant the user approved and a proof that the browser holds "
           "its key."
         user_data {
-          type: ACCESS_TOKENS
+          type: ACCESS_TOKEN
         }
         destination: OTHER
         destination_other: "The user's own Pubky homeserver."
@@ -184,7 +184,7 @@ constexpr net::NetworkTrafficAnnotationTag kStorageTrafficAnnotation =
           "The storage path, the file the site writes, and the browser's "
           "bearer for the user's homeserver."
         user_data {
-          type: ACCESS_TOKENS
+          type: ACCESS_TOKEN
           type: USER_CONTENT
         }
         destination: OTHER

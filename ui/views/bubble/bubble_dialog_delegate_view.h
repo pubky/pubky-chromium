@@ -75,8 +75,6 @@ class NetworkProfileBubbleView;
 class PageInfoBubbleViewBase;
 class PermissionPromptBaseView;
 class ProfileMenuViewBase;
-class PubkyIdentityBubbleView;
-class PubkySitePromptView;
 class RemoveSuggestionBubbleDialogDelegateView;
 class StoragePressureBubbleView;
 class TabGroupEditorBubbleView;
@@ -874,8 +872,6 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   friend class ::PageInfoBubbleViewBase;
   friend class ::PermissionPromptBaseView;
   friend class ::ProfileMenuViewBase;
-  friend class ::PubkyIdentityBubbleView;
-  friend class ::PubkySitePromptView;
   friend class ::RemoveSuggestionBubbleDialogDelegateView;
   friend class ::StoragePressureBubbleView;
   friend class ::TabGroupEditorBubbleView;

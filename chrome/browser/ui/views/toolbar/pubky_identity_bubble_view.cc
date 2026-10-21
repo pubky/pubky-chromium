@@ -11,7 +11,6 @@
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/ptr_util.h"
 #include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -43,6 +42,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -71,8 +71,20 @@ constexpr char kPassportAuthorizeUrl[] =
     "https://passport.pubky.app/authorize#d=";
 constexpr char kRingDownloadUrl[] = "https://pubkyring.app";
 
-// The open panel, if any. Only one exists at a time.
-PubkyIdentityBubbleView* g_bubble = nullptr;
+// The open panel. Only one exists at a time.
+struct Panel {
+  // Outlives `widget`.
+  std::unique_ptr<views::BubbleDialogDelegate> delegate;
+  std::unique_ptr<views::Widget> widget;
+  raw_ptr<PubkyIdentityBubbleView> contents;
+};
+Panel* g_panel = nullptr;
+
+void OnPanelClosed(views::Widget::ClosedReason reason) {
+  // Buttons in the panel close it, so delete it after their handlers return.
+  base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(
+      FROM_HERE, std::exchange(g_panel, nullptr));
+}
 
 std::optional<int> ErrorMessageId(std::optional<SignInResult> result) {
   if (!result) {
@@ -132,42 +144,46 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PubkyIdentityBubbleView,
 
 // static
 void PubkyIdentityBubbleView::Show(views::Button* anchor, BrowserWindowInterface* browser) {
-  if (g_bubble) {
+  if (g_panel) {
     return;
   }
-  g_bubble = new PubkyIdentityBubbleView(anchor, browser);
-  // Owned as the base class, whose destructor is public.
-  views::BubbleDialogDelegateView::CreateBubble(
-      std::unique_ptr<views::BubbleDialogDelegateView>(g_bubble))
-      ->Show();
+  g_panel = new Panel();
+  g_panel->delegate = std::make_unique<views::BubbleDialogDelegate>(
+      anchor, views::BubbleBorder::TOP_RIGHT);
+  g_panel->delegate->SetButtons(
+      static_cast<int>(ui::mojom::DialogButton::kNone));
+  g_panel->delegate->set_fixed_width(kBubbleWidth);
+  g_panel->delegate->set_margins(
+      ChromeLayoutProvider::Get()->GetInsetsMetric(views::INSETS_DIALOG));
+  g_panel->contents = g_panel->delegate->SetContentsView(
+      std::make_unique<PubkyIdentityBubbleView>(browser));
+  g_panel->widget = views::BubbleDialogDelegate::CreateBubble(
+      g_panel->delegate.get(), base::BindOnce(&OnPanelClosed));
+  g_panel->widget->Show();
 }
 
 // static
 void PubkyIdentityBubbleView::Hide() {
-  if (g_bubble && g_bubble->GetWidget()) {
-    g_bubble->GetWidget()->Close();
+  if (g_panel) {
+    // Runs OnPanelClosed().
+    g_panel->widget->Close();
   }
 }
 
 // static
 bool PubkyIdentityBubbleView::IsShowing() {
-  return g_bubble != nullptr;
+  return g_panel != nullptr;
 }
 
 // static
 PubkyIdentityBubbleView* PubkyIdentityBubbleView::GetForTesting() {
-  return g_bubble;
+  return g_panel ? g_panel->contents.get() : nullptr;
 }
 
-PubkyIdentityBubbleView::PubkyIdentityBubbleView(views::Button* anchor,
-                                                 BrowserWindowInterface* browser)
-    : BubbleDialogDelegateView(anchor, views::BubbleBorder::TOP_RIGHT),
-      browser_(browser),
+PubkyIdentityBubbleView::PubkyIdentityBubbleView(
+    BrowserWindowInterface* browser)
+    : browser_(browser),
       service_(PubkySessionServiceFactory::GetForProfile(browser->GetProfile())) {
-  SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
-  set_fixed_width(kBubbleWidth);
-  set_margins(
-      ChromeLayoutProvider::Get()->GetInsetsMetric(views::INSETS_DIALOG));
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical, gfx::Insets(),
       ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -178,18 +194,7 @@ PubkyIdentityBubbleView::PubkyIdentityBubbleView(views::Button* anchor,
   Rebuild();
 }
 
-PubkyIdentityBubbleView::~PubkyIdentityBubbleView() {
-  if (g_bubble == this) {
-    g_bubble = nullptr;
-  }
-}
-
-void PubkyIdentityBubbleView::WindowClosing() {
-  if (g_bubble == this) {
-    g_bubble = nullptr;
-  }
-  BubbleDialogDelegateView::WindowClosing();
-}
+PubkyIdentityBubbleView::~PubkyIdentityBubbleView() = default;
 
 void PubkyIdentityBubbleView::OnPubkySessionChanged() {
   // A button in this panel may have caused the change; rebuild after its
@@ -223,8 +228,10 @@ void PubkyIdentityBubbleView::Rebuild() {
       AddExpiredContent();
       break;
   }
-  if (GetWidget()) {
-    SizeToContents();
+  // The widget outlives its native window until OnPanelClosed() deletes it.
+  views::Widget* widget = GetWidget();
+  if (widget && !widget->IsClosed()) {
+    widget->widget_delegate()->AsBubbleDialogDelegate()->SizeToContents();
   }
 }
 

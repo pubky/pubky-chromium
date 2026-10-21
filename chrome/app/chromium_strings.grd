@@ -618,26 +618,26 @@ New bookmarks can’t be saved in your account until you delete some. If you sig
       </if>
       <!-- Default Browser messages -->
       <message name="IDS_FR_CUSTOMIZE_DEFAULT_BROWSER" desc="Default browser checkbox label">
-        Make Chromium the default browser
+        Make Pubky Chromium the default browser
       </message>
       <message name="IDS_DEFAULT_BROWSER_CHANGED_MESSAGE" desc="Body of the notification shown when Chrome is no longer the default browser.">
-        Chromium is no longer your default browser. Make Chromium the default browser?
+        Pubky Chromium is no longer your default browser. Make Pubky Chromium the default browser?
       </message>
       <if expr="is_win">
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_PAGE_TITLE" desc="Title of the default browser visual guided setter page.">
-          Set Chromium as your default browser
+          Set Pubky Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_HEADER_TITLE" desc="Header text of the default browser visual guided setter.">
-          Set Chromium as your default browser
+          Set Pubky Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_CONTENT_TITLE" desc="Content title of the default browser visual guided setter.">
-          Set Chromium as your default browser
+          Set Pubky Chromium as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_CONTENT_DESCRIPTION" desc="Body text of the default browser visual guided setter.">
-          Keep your passwords, bookmarks, and history perfectly synced across devices by setting Chromium as your default browser.
+          Keep your passwords, bookmarks, and history perfectly synced across devices by setting Pubky Chromium as your default browser.
         </message>
         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_INSTRUCTION_STEP_2" desc="Instruction step 2 of the default browser visual guided setter. $1 is the bold button name.">
-          Click <ph name="BEGIN_BOLD">&lt;strong&gt;</ph>Yes<ph name="END_BOLD">&lt;/strong&gt;</ph> in the Windows notification to pin Chromium to your taskbar for quick access.
+          Click <ph name="BEGIN_BOLD">&lt;strong&gt;</ph>Yes<ph name="END_BOLD">&lt;/strong&gt;</ph> in the Windows notification to pin Pubky Chromium to your taskbar for quick access.
         </message>
       </if>
       <if expr="use_titlecase">

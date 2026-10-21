@@ -166,7 +166,8 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
                             expression +
                             ")); } catch (e) { return e.name + '|' + e.message + "
                             "' at ' + location.href + ' secure=' + "
-                            "isSecureContext; } })()")
+                            "isSecureContext + ' page=' + "
+                            "document.body.innerText.slice(0, 160); } })()")
             .ExtractString();
     const size_t bar = result.find('|');
     if (result.substr(0, bar) == "ok") {

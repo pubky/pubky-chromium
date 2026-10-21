@@ -49,8 +49,11 @@ TEST(PubkySessionCryptoTest, Blake3MatchesSdk) {
   ASSERT_FALSE(cases->empty());
   for (const base::Value& entry : *cases) {
     const base::DictValue& dict = entry.GetDict();
+    const std::string& input_hex = *dict.FindString("input_hex");
     std::string input;
-    ASSERT_TRUE(base::HexStringToString(*dict.FindString("input_hex"), &input));
+    // HexStringToString rejects empty input, and the vectors hash "" too.
+    ASSERT_TRUE(input_hex.empty() ||
+                base::HexStringToString(input_hex, &input));
     EXPECT_EQ(Blake3(input), test::KeyFromHex(*dict.FindString("hash_hex")));
   }
 }

@@ -46,7 +46,9 @@ constexpr int kMaxRelayFailures = 3;
 constexpr base::TimeDelta kRelayRetryDelay = base::Seconds(2);
 constexpr base::TimeDelta kRequestTimeout = base::Seconds(30);
 constexpr base::TimeDelta kRefreshRetryDelay = base::Seconds(30);
-constexpr size_t kMaxStorageBodySize = 32 * 1024 * 1024;
+// The most SimpleURLLoader returns as a string; uploads use the same limit.
+constexpr size_t kMaxStorageBodySize =
+    network::SimpleURLLoader::kMaxBoundedStringDownloadSize;
 
 constexpr net::NetworkTrafficAnnotationTag kRelayTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("pubky_session_relay", R"(

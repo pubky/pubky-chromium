@@ -20,7 +20,6 @@
 #include "components/pubky_session/pubky_session_service.h"
 #include "components/pubky_session/session_store.h"
 #include "content/public/test/browser_task_environment.h"
-#include "content/public/test/test_web_contents_factory.h"
 #include "content/public/test/test_web_ui.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -77,7 +76,6 @@ class PubkyIdentityHandlerTest : public testing::Test {
                   factory_.GetSafeWeakWrapper(),
                   /*os_crypt_async=*/nullptr, base::FilePath());
             }));
-    web_ui_.set_web_contents(contents_factory_.CreateWebContents(&profile_));
     handler_ = std::make_unique<TestPubkyIdentityHandler>(&profile_);
     handler_->set_web_ui(&web_ui_);
     handler_->RegisterMessages();
@@ -113,7 +111,6 @@ class PubkyIdentityHandlerTest : public testing::Test {
   content::BrowserTaskEnvironment environment_;
   TestingProfile profile_;
   network::TestURLLoaderFactory factory_;
-  content::TestWebContentsFactory contents_factory_;
   content::TestWebUI web_ui_;
   std::unique_ptr<TestPubkyIdentityHandler> handler_;
 };

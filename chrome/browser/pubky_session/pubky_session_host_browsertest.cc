@@ -173,7 +173,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
       return result.substr(bar + 1);
     }
     // The error name is what tests compare; the rest helps when one fails.
-    LOG(INFO) << expression << " rejected: " << result;
+    LOG(WARNING) << expression << " rejected: " << result;
     return result.substr(0, bar);
   }
 

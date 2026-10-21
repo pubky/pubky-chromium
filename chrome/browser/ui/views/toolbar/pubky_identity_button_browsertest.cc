@@ -122,7 +122,12 @@ IN_PROC_BROWSER_TEST_F(PubkyIdentityButtonBrowserTest,
   Service(browser())->SignInForTesting(FakeSession(), "Marcos");
   EXPECT_EQ(Button(browser())->label_for_testing(), u"Marcos");
 
+  LOG(WARNING) << "before click: showing="
+               << PubkyIdentityBubbleView::IsShowing();
   Click(browser());
+  LOG(WARNING) << "after click: showing="
+               << PubkyIdentityBubbleView::IsShowing() << " state="
+               << static_cast<int>(Service(browser())->state());
   EXPECT_EQ(Service(browser())->state(), State::kSignedIn);
   ASSERT_TRUE(base::test::RunUntil(
       [] { return PubkyIdentityBubbleView::GetForTesting() != nullptr; }));

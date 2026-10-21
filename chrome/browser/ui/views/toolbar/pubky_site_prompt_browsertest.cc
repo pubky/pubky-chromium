@@ -39,8 +39,9 @@
 
 namespace {
 
-// Hosts that resolve without DNS: this fork's resolver ignores the test host
-// rules, and CERT_OK covers both. They are distinct origins.
+// Distinct origins that are secure contexts over plain HTTP. This fork's
+// resolver ignores the test host rules and its verifier does not trust the
+// test server's root, so the tests avoid DNS and TLS.
 constexpr char kSite[] = "localhost";
 constexpr char kOtherSite[] = "127.0.0.1";
 
@@ -77,9 +78,8 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
  protected:
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
-    https_server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
-    ASSERT_TRUE(https_server_.Start());
+    server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
+    ASSERT_TRUE(server_.Start());
     ASSERT_TRUE(base::test::RunUntil([&] {
       return Service()->state() != PubkySessionService::State::kLoading;
     }));
@@ -99,7 +99,7 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
   }
 
   GURL Url(std::string_view host) {
-    return https_server_.GetURL(host, "/title1.html");
+    return server_.GetURL(host, "/title1.html");
   }
 
   url::Origin Origin(std::string_view host) {
@@ -144,7 +144,7 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
         ->pubky_identity_chip();
   }
 
-  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
+  net::EmbeddedTestServer server_;
 };
 
 IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest, AllowIsRemembered) {

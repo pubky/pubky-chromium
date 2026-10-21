@@ -35,8 +35,9 @@
 
 namespace {
 
-// Hosts that resolve without DNS: this fork's resolver ignores the test host
-// rules, and CERT_OK covers both. They are distinct origins.
+// Distinct origins that are secure contexts over plain HTTP. This fork's
+// resolver ignores the test host rules and its verifier does not trust the
+// test server's root, so the tests avoid DNS and TLS.
 constexpr char kSite[] = "localhost";
 constexpr char kOtherSite[] = "127.0.0.1";
 
@@ -98,9 +99,8 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
  protected:
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_OK);
-    https_server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
-    ASSERT_TRUE(https_server_.Start());
+    server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
+    ASSERT_TRUE(server_.Start());
     interceptor_ = std::make_unique<content::URLLoaderInterceptor>(
         base::BindRepeating(&ServeHomeserver,
                             pubky_session::EncodeZ32(FilledKey(3))));
@@ -144,7 +144,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
   }
 
   url::Origin Origin(std::string_view host) {
-    return url::Origin::Create(https_server_.GetURL(host, "/"));
+    return url::Origin::Create(server_.GetURL(host, "/"));
   }
 
   std::string UserKey() { return pubky_session::EncodeZ32(FilledKey(2)); }
@@ -152,7 +152,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
   void SignInAndOpen(std::string_view host) {
     Service()->SignInForTesting(FakeSession(), std::nullopt);
     ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), https_server_.GetURL(host, "/title1.html")));
+        browser(), server_.GetURL(host, "/title1.html")));
   }
 
   void Allow(std::string_view host, std::string_view scopes) {
@@ -190,7 +190,7 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
                             ").then(s => (window.session = s).publicKey)");
   }
 
-  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
+  net::EmbeddedTestServer server_;
   std::unique_ptr<content::URLLoaderInterceptor> interceptor_;
   bool allow_ = true;
   int open_sign_in_calls_ = 0;
@@ -303,9 +303,9 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest, OnlySameOriginFrames) {
       "  document.body.appendChild(frame);"
       "}"));
   ASSERT_TRUE(content::NavigateIframeToURL(
-      Tab(), "same", https_server_.GetURL(kSite, "/title1.html")));
+      Tab(), "same", server_.GetURL(kSite, "/title1.html")));
   ASSERT_TRUE(content::NavigateIframeToURL(
-      Tab(), "cross", https_server_.GetURL(kOtherSite, "/title1.html")));
+      Tab(), "cross", server_.GetURL(kOtherSite, "/title1.html")));
 
   content::RenderFrameHost* main_frame = Tab()->GetPrimaryMainFrame();
   EXPECT_EQ(RequestSession(content::ChildFrameAt(main_frame, 0),
@@ -330,7 +330,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
                        ASignedOutRequestOpensSignInAndContinues) {
   ASSERT_EQ(Service()->state(), PubkySessionService::State::kSignedOut);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server_.GetURL(kSite, "/title1.html")));
+      browser(), server_.GetURL(kSite, "/title1.html")));
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "window.result = navigator.pubky.requestSession(['/pub/a.test/:rw'])"

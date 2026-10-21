@@ -812,6 +812,7 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/private_ai",
     "//chrome/browser/private_insights",
     "//chrome/browser/private_verification_tokens",
+    "//chrome/browser/pubky_session",
     "//chrome/browser/push_messaging",
     "//chrome/browser/reading_list",
     "//chrome/browser/reduce_accept_language",

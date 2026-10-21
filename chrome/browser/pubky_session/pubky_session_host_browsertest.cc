@@ -126,15 +126,15 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
   }
 
   PubkySessionService* Service() {
-    return PubkySessionServiceFactory::GetForProfile(browser()->profile());
+    return PubkySessionServiceFactory::GetForProfile(browser()->GetProfile());
   }
 
   HostContentSettingsMap* Settings() {
-    return HostContentSettingsMapFactory::GetForProfile(browser()->profile());
+    return HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
   }
 
   content::WebContents* Tab() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return browser()->GetTabStripModel()->GetActiveWebContents();
   }
 
   url::Origin Origin(std::string_view host) {

@@ -536,4 +536,9 @@ Refer to README.md for content description and update process.
  <item id="iwa_dev_ui_web_bundle" added_in_milestone="154" type="partial" second_id="iwa_bundle_downloader" content_hash_code="03f5bf31" os_list="chromeos,linux,windows" semantics_fields="1,2,3" policy_fields="3,5" file_path="chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_dev_install_manager.cc" />
  <item id="ttc_model_execution" added_in_milestone="155" content_hash_code="047772aa" os_list="linux,windows,chromeos,android" file_path="components/optimization_guide/core/model_execution/remote_model_execution_common.cc" />
  <item id="pubky_explicit_update_package" added_in_milestone="156" content_hash_code="06818ee3" os_list="windows" file_path="chrome/browser/pubky_update/windows_adapter.cc" />
+ <item id="pubky_session_relay" added_in_milestone="156" content_hash_code="0284f893" os_list="linux,windows" file_path="components/pubky_session/pubky_session_service.cc" />
+ <item id="pubky_session_pkarr" added_in_milestone="156" content_hash_code="0441a1d1" os_list="linux,windows" file_path="components/pubky_session/pubky_session_service.cc" />
+ <item id="pubky_session_homeserver" added_in_milestone="156" content_hash_code="04663f35" os_list="linux,windows" file_path="components/pubky_session/pubky_session_service.cc" />
+ <item id="pubky_session_profile" added_in_milestone="156" content_hash_code="06f803e1" os_list="linux,windows" file_path="components/pubky_session/pubky_session_service.cc" />
+ <item id="pubky_session_storage" added_in_milestone="156" content_hash_code="06e61d40" os_list="linux,windows" file_path="components/pubky_session/pubky_session_service.cc" />
 </annotations>

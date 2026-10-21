@@ -334,7 +334,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "window.result = navigator.pubky.requestSession(['/pub/a.test/:rw'])"
-      "    .then(s => s.publicKey, e => e.name);"));
+      "    .then(s => s.publicKey, e => e.name); true;"));
   ASSERT_TRUE(base::test::RunUntil([&] { return open_sign_in_calls_ == 1; }));
 
   Service()->SignInForTesting(FakeSession(), std::nullopt);
@@ -348,7 +348,7 @@ IN_PROC_BROWSER_TEST_F(PubkySessionHostBrowserTest,
   ASSERT_TRUE(content::ExecJs(
       Tab(),
       "window.result = navigator.pubky.requestSession(['/priv/a.test/:rw'])"
-      "    .then(s => s.publicKey, e => e.name);"));
+      "    .then(s => s.publicKey, e => e.name); true;"));
   // Approving in Ring is the answer, so there is no separate prompt.
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return !Service()->scope_approval_link().empty(); }));

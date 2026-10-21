@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 
+#include "base/logging.h"
 #include "base/test/run_until.h"
 #include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
@@ -123,6 +124,11 @@ IN_PROC_BROWSER_TEST_F(PubkyIdentityButtonBrowserTest,
 
   Click(browser());
   EXPECT_EQ(Service(browser())->state(), State::kSignedIn);
+  ASSERT_TRUE(base::test::RunUntil(
+      [] { return PubkyIdentityBubbleView::GetForTesting() != nullptr; }));
+  LOG(WARNING) << "identity panel children: "
+               << PubkyIdentityBubbleView::GetForTesting()->children().size()
+               << " state: " << static_cast<int>(Service(browser())->state());
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return BubbleHas(PubkyIdentityBubbleView::kSignOutElementId); }));
 }

@@ -120,7 +120,7 @@ class PubkySitePromptBrowserTest : public InProcessBrowserTest {
   void StartRequest(const std::string& scopes) {
     ASSERT_TRUE(content::ExecJs(
         Tab(), "window.result = navigator.pubky.requestSession(" + scopes +
-                   ").then(s => s.publicKey, e => e.name);"));
+                   ").then(s => s.publicKey, e => e.name); true;"));
   }
 
   std::string Result() {

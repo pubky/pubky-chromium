@@ -9,7 +9,6 @@
 
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/ptr_util.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/pubky_session/pubky_identity_text.h"
@@ -24,7 +23,6 @@
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/elide_url.h"
 #include "components/vector_icons/vector_icons.h"
-#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -131,13 +129,11 @@ void PubkySitePromptView::Show(content::WebContents* contents,
   bubble_anchor_util::AnchorConfiguration anchor =
       bubble_anchor_util::GetPageInfoAnchorConfiguration(
           tab->GetBrowserWindowInterface());
-  g_prompt = new PubkySitePromptView(anchor.anchor, anchor.bubble_arrow,
-                                     contents, service, origin, scopes, ring,
-                                     std::move(callback));
-  // Owned as the base class, whose destructor is public.
-  views::BubbleDialogDelegateView::CreateBubble(
-      std::unique_ptr<views::BubbleDialogDelegateView>(g_prompt))
-      ->Show();
+  auto prompt = std::make_unique<PubkySitePromptView>(
+      anchor.anchor, anchor.bubble_arrow, contents, service, origin, scopes,
+      ring, std::move(callback));
+  g_prompt = prompt.get();
+  views::BubbleDialogDelegateView::CreateBubble(std::move(prompt))->Show();
 }
 
 PubkySitePromptView::PubkySitePromptView(
@@ -149,12 +145,12 @@ PubkySitePromptView::PubkySitePromptView(
     const std::vector<Capability>& scopes,
     bool ring,
     base::OnceCallback<void(bool allowed)> callback)
-    : BubbleDialogDelegateView(anchor, arrow),
-      content::WebContentsObserver(contents),
+    : LocationBarBubbleDelegateView(anchor, contents),
       ring_(ring),
       service_(service),
       ring_link_(ring ? service->scope_approval_link() : std::string()),
       callback_(std::move(callback)) {
+  SetArrow(arrow);
   set_fixed_width(kPromptWidth);
   set_margins(
       ChromeLayoutProvider::Get()->GetInsetsMetric(views::INSETS_DIALOG));
@@ -208,31 +204,19 @@ PubkySitePromptView::~PubkySitePromptView() {
 }
 
 void PubkySitePromptView::PrimaryPageChanged(content::Page& page) {
-  CloseWidget();
-}
-
-void PubkySitePromptView::OnVisibilityChanged(
-    content::Visibility visibility) {
-  if (visibility == content::Visibility::HIDDEN) {
-    CloseWidget();
-  }
-}
-
-void PubkySitePromptView::WebContentsDestroyed() {
-  Observe(nullptr);
-  CloseWidget();
+  CloseBubble();
 }
 
 void PubkySitePromptView::OnPubkySessionChanged() {
   if (ring_) {
     // Approved, refused or cancelled in Ring.
     if (service_->scope_approval_link() != ring_link_) {
-      CloseWidget();
+      CloseBubble();
     }
     return;
   }
   if (!service_->user()) {
-    CloseWidget();
+    CloseBubble();
   }
 }
 
@@ -333,12 +317,6 @@ void PubkySitePromptView::Finish(bool allowed) {
   }
   if (callback_) {
     std::move(callback_).Run(allowed);
-  }
-}
-
-void PubkySitePromptView::CloseWidget() {
-  if (GetWidget()) {
-    GetWidget()->Close();
   }
 }
 

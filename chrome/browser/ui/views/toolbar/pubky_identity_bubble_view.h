@@ -14,7 +14,7 @@
 #include "components/pubky_session/pubky_session_service.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/view.h"
 
 class BrowserWindowInterface;
 
@@ -25,11 +25,12 @@ class Button;
 // The identity button's panel. Its content follows the session state: the
 // sign-in link as a QR code with Passport as an alternative, the signed-in
 // identity with the other identities and sign-out, the expired-approval
-// prompt, and the Incognito explanation.
+// prompt, and the Incognito explanation. This is the panel's contents; Show()
+// puts it in a views::BubbleDialogDelegate anchored to the button.
 class PubkyIdentityBubbleView
-    : public views::BubbleDialogDelegateView,
+    : public views::View,
       public pubky_session::PubkySessionService::Observer {
-  METADATA_HEADER(PubkyIdentityBubbleView, views::BubbleDialogDelegateView)
+  METADATA_HEADER(PubkyIdentityBubbleView, views::View)
 
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kQrCodeElementId);
@@ -41,19 +42,16 @@ class PubkyIdentityBubbleView
   static bool IsShowing();
   static PubkyIdentityBubbleView* GetForTesting();
 
+  // Use Show().
+  explicit PubkyIdentityBubbleView(BrowserWindowInterface* browser);
   PubkyIdentityBubbleView(const PubkyIdentityBubbleView&) = delete;
   PubkyIdentityBubbleView& operator=(const PubkyIdentityBubbleView&) = delete;
+  ~PubkyIdentityBubbleView() override;
 
   // pubky_session::PubkySessionService::Observer:
   void OnPubkySessionChanged() override;
 
  private:
-  PubkyIdentityBubbleView(views::Button* anchor, BrowserWindowInterface* browser);
-  ~PubkyIdentityBubbleView() override;
-
-  // views::WidgetDelegate:
-  void WindowClosing() override;
-
   void Rebuild();
   void AddSignInContent();
   void AddSignedOutContent();

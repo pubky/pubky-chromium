@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/test/run_until.h"
 #include "base/time/time.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -159,10 +160,21 @@ class PubkySessionHostBrowserTest : public InProcessBrowserTest,
   // name of the error it rejects with.
   std::string Call(const content::ToRenderFrameHost& target,
                    const std::string& expression) {
-    return content::EvalJs(target, "(async () => { try { return String(await (" +
-                                       expression +
-                                       ")); } catch (e) { return e.name; } })()")
-        .ExtractString();
+    const std::string result =
+        content::EvalJs(target,
+                        "(async () => { try { return 'ok|' + String(await (" +
+                            expression +
+                            ")); } catch (e) { return e.name + '|' + e.message + "
+                            "' at ' + location.href + ' secure=' + "
+                            "isSecureContext; } })()")
+            .ExtractString();
+    const size_t bar = result.find('|');
+    if (result.substr(0, bar) == "ok") {
+      return result.substr(bar + 1);
+    }
+    // The error name is what tests compare; the rest helps when one fails.
+    LOG(INFO) << expression << " rejected: " << result;
+    return result.substr(0, bar);
   }
 
   std::string RequestSession(const content::ToRenderFrameHost& target,

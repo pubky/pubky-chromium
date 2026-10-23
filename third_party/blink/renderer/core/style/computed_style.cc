@@ -493,6 +493,10 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
       old_style.HasAnyPseudoElementStyles()) {
     return Difference::kPseudoElementStyle;
   }
+  if (old_style.ScrollMarkerGroupPosition() !=
+      new_style.ScrollMarkerGroupPosition()) {
+    return Difference::kPseudoElementStyle;
+  }
   if (old_style.Display() != new_style.Display() &&
       (new_style.IsDisplayListItem() || old_style.IsDisplayListItem())) {
     return Difference::kPseudoElementStyle;
@@ -1511,7 +1515,7 @@ namespace {
 
 gfx::RectF GetReferenceBox(const LayoutBox* box, CoordBox coord_box) {
   if (box) {
-    if (const LayoutBlock* containing_block = box->ContainingBlock()) {
+    if (const LayoutBox* containing_block = box->ContainingBlock()) {
       // In SVG contexts, all values behave as view-box.
       if (box->IsSVG()) {
         return gfx::RectF(SVGViewportResolver(*box).ResolveViewport());
@@ -1537,7 +1541,7 @@ gfx::RectF GetReferenceBox(const LayoutBox* box, CoordBox coord_box) {
 
 gfx::PointF GetOffsetFromContainingBlock(const LayoutBox* box) {
   if (box) {
-    if (const LayoutBlock* containing_block = box->ContainingBlock()) {
+    if (const LayoutBox* containing_block = box->ContainingBlock()) {
       gfx::PointF offset =
           box->LocalToAncestorPoint(gfx::PointF(), containing_block,
                                     {MapCoordinatesMode::kIgnoreTransforms});
@@ -1770,11 +1774,15 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
   } else {
     const auto* url_operation =
         DynamicTo<ReferenceOffsetPathOperation>(offset_path);
-    if (!url_operation->Resource()) {
+    SVGResource* resource = url_operation->Resource();
+    if (!resource) {
       return;
     }
-    const auto* target =
-        DynamicTo<SVGGeometryElement>(url_operation->Resource()->Target());
+    // Call ResourceContainerNoCycleCheck() to ensure the resource's style is
+    // up-to-date.
+    resource->ResourceContainerNoCycleCheck(SVGResource::Usage::kContent);
+
+    const auto* target = DynamicTo<SVGGeometryElement>(resource->Target());
     Path path;
     if (!target || !target->GetComputedStyle()) {
       // Failure to find a shape should be equivalent to a "m0,0" path.

@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.SelectionActionMenuClientWrapper.MenuType;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -36,6 +37,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicContextMenuUtils;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedService.GlicInvocationSource;
@@ -228,6 +230,7 @@ public class TextSelectionActionMenuDelegateTest {
 
     @Test
     public void testAskGemini_shownOnDropdownMenu_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
         FeatureOverrides.enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU);
         FeatureOverrides.enable(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL);
         GlicEnabling.setEnabledForTesting(true);
@@ -251,7 +254,46 @@ public class TextSelectionActionMenuDelegateTest {
     }
 
     @Test
+    public void testAskGemini_notShownOnPhone_whenNoBottomSheet() {
+        // On a phone the side panel is unavailable regardless of the side panel flag, so with the
+        // bottom sheet also off there is no container to host Glic and the item must be hidden.
+        DeviceInfo.setIsDesktopForTesting(false);
+        FeatureOverrides.enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU);
+        FeatureOverrides.enable(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL);
+        FeatureOverrides.disable(ChromeFeatureList.TAB_BOTTOM_SHEET);
+        GlicEnabling.setEnabledForTesting(true);
+
+        List<SelectionMenuItem> items =
+                mDelegate.getAdditionalMenuItems(
+                        MenuType.DROPDOWN,
+                        /* isSelectionPassword= */ false,
+                        /* isSelectionReadOnly= */ true,
+                        /* selectedText= */ "test");
+
+        assertNull(findItem(items, R.id.contextmenu_ask_gemini));
+    }
+
+    @Test
+    public void testAskGemini_shownOnPhone_whenBottomSheetEnabled() {
+        // The bottom sheet provides the container on phones, so the item is still offered.
+        DeviceInfo.setIsDesktopForTesting(false);
+        FeatureOverrides.enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU);
+        FeatureOverrides.enable(ChromeFeatureList.TAB_BOTTOM_SHEET);
+        GlicEnabling.setEnabledForTesting(true);
+
+        List<SelectionMenuItem> items =
+                mDelegate.getAdditionalMenuItems(
+                        MenuType.DROPDOWN,
+                        /* isSelectionPassword= */ false,
+                        /* isSelectionReadOnly= */ true,
+                        /* selectedText= */ "test");
+
+        assertNotNull(findItem(items, R.id.contextmenu_ask_gemini));
+    }
+
+    @Test
     public void testAskGemini_shownOnFloatingMenu_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
         FeatureOverrides.enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU);
         FeatureOverrides.enable(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL);
         GlicEnabling.setEnabledForTesting(true);
@@ -345,8 +387,8 @@ public class TextSelectionActionMenuDelegateTest {
         FeatureOverrides.newBuilder()
                 .enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
                 .param(
-                        TextSelectionActionMenuDelegate.PARAM_ASK_GEMINI_SELECTION_MENU_POSITION,
-                        TextSelectionActionMenuDelegate.ASK_GEMINI_POSITION_ASSIST)
+                        GlicContextMenuUtils.PARAM_ASK_GEMINI_SELECTION_MENU_POSITION,
+                        GlicContextMenuUtils.ASK_GEMINI_POSITION_ASSIST)
                 .apply();
 
         List<SelectionMenuItem> items =
@@ -367,8 +409,8 @@ public class TextSelectionActionMenuDelegateTest {
         FeatureOverrides.newBuilder()
                 .enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
                 .param(
-                        TextSelectionActionMenuDelegate.PARAM_ASK_GEMINI_SELECTION_MENU_POSITION,
-                        TextSelectionActionMenuDelegate.ASK_GEMINI_POSITION_SECONDARY)
+                        GlicContextMenuUtils.PARAM_ASK_GEMINI_SELECTION_MENU_POSITION,
+                        GlicContextMenuUtils.ASK_GEMINI_POSITION_SECONDARY)
                 .apply();
 
         List<SelectionMenuItem> items =
@@ -453,7 +495,7 @@ public class TextSelectionActionMenuDelegateTest {
         enableAskGeminiForSelection();
         FeatureOverrides.newBuilder()
                 .enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
-                .param(TextSelectionActionMenuDelegate.PARAM_ASK_GEMINI_SEND_SELECTED_TEXT, "false")
+                .param(GlicContextMenuUtils.PARAM_ASK_GEMINI_SEND_SELECTED_TEXT, "false")
                 .apply();
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
 
@@ -566,7 +608,7 @@ public class TextSelectionActionMenuDelegateTest {
     }
 
     private static final String GSA_ASK_GEMINI_PROCESS_TEXT_ACTIVITY =
-            TextSelectionActionMenuDelegate.DEFAULT_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES
+            GlicContextMenuUtils.DEFAULT_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES
                     + "launcher.ProcessTextGatewayActivity";
 
     private static ResolveInfo createGsaAskGeminiResolveInfo() {
@@ -671,8 +713,7 @@ public class TextSelectionActionMenuDelegateTest {
         ResolveInfo renamedRobinActivity =
                 createResolveInfo(
                         "com.google.android.googlequicksearchbox",
-                        TextSelectionActionMenuDelegate
-                                        .DEFAULT_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES
+                        GlicContextMenuUtils.DEFAULT_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES
                                 + "other.SomeRenamedGatewayActivity");
         ResolveInfo other = createResolveInfo("com.example.translate", "com.example.Translate");
 
@@ -705,8 +746,7 @@ public class TextSelectionActionMenuDelegateTest {
                 .enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
                 .param(
                         ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
-                        TextSelectionActionMenuDelegate
-                                .PARAM_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES,
+                        GlicContextMenuUtils.PARAM_SUPPRESSED_PROCESS_TEXT_ACTIVITY_PREFIXES,
                         "com.example.custom1., com.example.custom2.")
                 .apply();
         ResolveInfo custom1 =
@@ -730,7 +770,7 @@ public class TextSelectionActionMenuDelegateTest {
                 .enable(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
                 .param(
                         ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
-                        TextSelectionActionMenuDelegate.PARAM_SUPPRESS_DUPLICATE_PROCESS_TEXT,
+                        GlicContextMenuUtils.PARAM_SUPPRESS_DUPLICATE_PROCESS_TEXT,
                         false)
                 .apply();
         List<ResolveInfo> activities = List.of(createGsaAskGeminiResolveInfo());

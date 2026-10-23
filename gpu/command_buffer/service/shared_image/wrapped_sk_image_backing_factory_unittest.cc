@@ -29,6 +29,11 @@
 #include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
 #include "third_party/skia/include/gpu/ganesh/SkImageGanesh.h"
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
+#include "ui/gfx/skia_span_util.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_surface.h"
+#include "ui/gl/gl_utils.h"
+#include "ui/gl/init/gl_factory.h"
 
 namespace gpu {
 namespace {
@@ -65,12 +70,6 @@ class WrappedSkImageBackingFactoryTest
              ->feature_flags()
              .ext_texture_format_bgra8888) {
       // We don't support GL context with Dawn for now.
-      GTEST_SKIP();
-    }
-
-    // We don't use WrappedSkImageBacking with ALPHA8 if it's GL context.
-    if (format == viz::SinglePlaneFormat::kALPHA_8 &&
-        gr_context_type == GrContextType::kGL) {
       GTEST_SKIP();
     }
 
@@ -238,6 +237,56 @@ TEST_P(WrappedSkImageBackingFactoryTest, UploadAndReadback) {
   }
 }
 
+// Verify that creating and destroying a backing leaves whichever GL context and
+// surface were current beforehand still current.
+TEST_P(WrappedSkImageBackingFactoryTest, RestoresPreviouslyCurrentGLContext) {
+  if (GetGrContextType() != GrContextType::kGL) {
+    GTEST_SKIP() << "Only relevant when Skia uses GL";
+  }
+
+  auto format = GetFormat();
+  gfx::Size size(100, 100);
+  SharedImageInfo si_info(format, size, kColorSpace, kSurfaceOrigin,
+                          GetAlphaType(format), kUsage, "TestLabel");
+
+  // Use a different context and surface from the SharedContextState's.
+  scoped_refptr<gl::GLSurface> other_surface =
+      gl::init::CreateOffscreenGLSurface(gl::GetDefaultDisplayEGL(),
+                                         gfx::Size(4, 4));
+  ASSERT_TRUE(other_surface);
+  scoped_refptr<gl::GLContext> other_context = gl::init::CreateGLContext(
+      nullptr, other_surface.get(), gl::GLContextAttribs());
+  ASSERT_TRUE(other_context);
+  ASSERT_TRUE(other_context->MakeCurrent(other_surface.get()));
+
+  auto backing = backing_factory_->CreateSharedImage(
+      Mailbox::Generate(), si_info, gpu::kNullSurfaceHandle,
+      /*is_thread_safe=*/false);
+  ASSERT_TRUE(backing);
+  EXPECT_EQ(gl::GLContext::GetCurrent(), other_context.get());
+  EXPECT_EQ(gl::GLSurface::GetCurrent(), other_surface.get());
+
+  backing.reset();
+  EXPECT_EQ(gl::GLContext::GetCurrent(), other_context.get());
+  EXPECT_EQ(gl::GLSurface::GetCurrent(), other_surface.get());
+
+  if (format.is_single_plane()) {
+    std::vector<SkBitmap> bitmaps = AllocateRedBitmaps(format, size);
+    auto pixels = gfx::SkPixmapToSpan(bitmaps[0].pixmap());
+    backing = backing_factory_->CreateSharedImage(
+        Mailbox::Generate(), si_info, /*is_thread_safe=*/false, pixels);
+    ASSERT_TRUE(backing);
+    EXPECT_EQ(gl::GLContext::GetCurrent(), other_context.get());
+    EXPECT_EQ(gl::GLSurface::GetCurrent(), other_surface.get());
+
+    backing.reset();
+    EXPECT_EQ(gl::GLContext::GetCurrent(), other_context.get());
+    EXPECT_EQ(gl::GLSurface::GetCurrent(), other_surface.get());
+  }
+
+  ASSERT_TRUE(gl_context_->MakeCurrent(gl_surface_.get()));
+}
+
 std::string TestParamToString(
     const testing::TestParamInfo<
         std::tuple<viz::SharedImageFormat, GrContextType>>& param_info) {
@@ -251,8 +300,7 @@ std::string TestParamToString(
 // BGRA_1010102 fails to create backing. BGRX_8888 and BGR_565 "work" but Skia
 // just thinks is RGBX_8888 and RGB_565 respectively so upload doesn't work.
 // TODO(kylechar): Add RGBA_F16 where it works.
-const auto kFormats = ::testing::Values(viz::SinglePlaneFormat::kALPHA_8,
-                                        viz::SinglePlaneFormat::kR_8,
+const auto kFormats = ::testing::Values(viz::SinglePlaneFormat::kR_8,
                                         viz::SinglePlaneFormat::kRG_88,
                                         viz::SinglePlaneFormat::kRGBA_4444,
                                         viz::SinglePlaneFormat::kRGBA_8888,

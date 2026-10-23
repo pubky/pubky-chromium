@@ -596,6 +596,10 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kDefaultFollowingFeedSortTypeChanged,
                                 false);
 
+  // Register pref storing the entry point chosen by the user for the AppBar
+  // assistant button.
+  registry->RegisterIntegerPref(prefs::kAppBarAssistantButtonPreferredState, 0);
+
   // Register prefs used by Clear Browsing Data UI.
   browsing_data::prefs::RegisterBrowserUserPrefs(registry);
 
@@ -847,6 +851,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
   registry->RegisterBooleanPref(prefs::kIOSGeminiCameraSetting, false);
   registry->RegisterBooleanPref(prefs::kIOSGeminiSuggestionsSetting, true);
+  registry->RegisterDictionaryPref(prefs::kIOSContextualCueingVerticalUiState);
   registry->RegisterBooleanPref(prefs::kIOSGeminiLiveClosedCaptioningSetting,
                                 false);
   registry->RegisterBooleanPref(prefs::kIOSGeminiLiveMicrophoneSetting, true);

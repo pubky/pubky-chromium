@@ -45,7 +45,8 @@ namespace blink {
 ArrayBufferContents::ArrayBufferContents(
     const base::subtle::PlatformSharedMemoryRegion& region,
     uint64_t offset,
-    size_t length) {
+    size_t length,
+    SharingType is_shared) {
   DCHECK(region.IsValid());
 
   // The offset must be a multiples of |SysInfo::VMAllocationGranularity()|.
@@ -71,8 +72,13 @@ ArrayBufferContents::ArrayBufferContents(
     base::subtle::PlatformSharedMemoryRegion::Unmap(mapping, mapper);
   };
   uint8_t* base = &result.value()[offset_rounding];
-  backing_store_ =
-      v8::ArrayBuffer::NewBackingStore(base, length, deleter, nullptr);
+  if (is_shared == kShared) {
+    backing_store_ =
+        v8::SharedArrayBuffer::NewBackingStore(base, length, deleter, nullptr);
+  } else {
+    backing_store_ =
+        v8::ArrayBuffer::NewBackingStore(base, length, deleter, nullptr);
+  }
 }
 
 ArrayBufferContents::ArrayBufferContents(
@@ -95,10 +101,13 @@ ArrayBufferContents::ArrayBufferContents(
 
   if (!max_num_elements) {
     // Create a fixed-length ArrayBuffer.
-    void* data = AllocateMemoryOrNull(length, policy);
+    void* data =
+        AllocateMemoryOrNull(length, policy, MaxAllocationSizePolicy::kNormal);
     if (!data && v8::Isolate::TryGetCurrent() != nullptr) {
       v8::Isolate::GetCurrent()->RetryCustomAllocate([&]() {
-        return (data = AllocateMemoryOrNull(length, policy)) != nullptr;
+        return (data = AllocateMemoryOrNull(
+                    length, policy, MaxAllocationSizePolicy::kNormal)) !=
+               nullptr;
       });
     }
     if (!data &&
@@ -218,8 +227,6 @@ void* ArrayBufferContents::AllocateMemory(size_t size,
     }
   }
 
-  constexpr auto flags_with_size =
-      flags | partition_alloc::AllocFlags::kAllowGigaAllocations;
 #ifdef V8_ENABLE_SANDBOX
   // The V8 sandbox requires all ArrayBuffer backing stores to be allocated
   // inside the sandbox address space. This isn't guaranteed if allocation
@@ -228,11 +235,11 @@ void* ArrayBufferContents::AllocateMemory(size_t size,
   // hooks (which are e.g. used by the heap profiler) should still be invoked.
   // Using the kNoOverrideHooks and kNoMemoryToolOverride flags with
   // accomplishes this.
-  constexpr auto new_flags = flags_with_size |
+  constexpr auto new_flags = flags |
                              partition_alloc::AllocFlags::kNoOverrideHooks |
                              partition_alloc::AllocFlags::kNoMemoryToolOverride;
 #else
-  constexpr auto new_flags = flags_with_size;
+  constexpr auto new_flags = flags;
 #endif
   void* data;
   if (policy == kZeroInitialize) {
@@ -254,8 +261,16 @@ void* ArrayBufferContents::AllocateMemory(size_t size,
   return data;
 }
 
-void* ArrayBufferContents::AllocateMemoryOrNull(size_t size,
-                                                InitializationPolicy policy) {
+void* ArrayBufferContents::AllocateMemoryOrNull(
+    size_t size,
+    InitializationPolicy policy,
+    MaxAllocationSizePolicy max_allocation_size_policy) {
+  if (max_allocation_size_policy ==
+      MaxAllocationSizePolicy::kAllowGigaAllocations) {
+    return AllocateMemory<partition_alloc::AllocFlags::kReturnNull |
+                          partition_alloc::AllocFlags::kAllowGigaAllocations>(
+        size, policy);
+  }
   return AllocateMemory<partition_alloc::AllocFlags::kReturnNull>(size, policy);
 }
 

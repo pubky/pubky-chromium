@@ -18,6 +18,8 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
 import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
+import type {ToolbarBrowserProxy} from './contextual_tasks_toolbar_browser_proxy.js';
+import {ToolbarBrowserProxyImpl} from './contextual_tasks_toolbar_browser_proxy.js';
 import {getCss} from './overflow_menu.css.js';
 import {getHtml} from './overflow_menu.html.js';
 import {recordAction} from './utils.js';
@@ -59,7 +61,6 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
           {type: Boolean},
       isAimEligible: {type: Boolean},
       isCobrowseEligible: {type: Boolean},
-      isHandshakeComplete: {type: Boolean},
       webuiRoundedIconsEnabled_: {type: Boolean},
     };
   }
@@ -82,7 +83,6 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
           'contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow');
   accessor isAimEligible: boolean = false;
   accessor isCobrowseEligible: boolean = false;
-  accessor isHandshakeComplete: boolean = false;
 
   protected accessor webuiRoundedIconsEnabled_: boolean =
       loadTimeData.getBoolean('webuiRoundedIconsEnabled');
@@ -90,21 +90,24 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
   private isUnboundedMenuEnabled_: boolean =
       loadTimeData.valueExists('contextualTasksUnboundedMenuEnabled') &&
       loadTimeData.getBoolean('contextualTasksUnboundedMenuEnabled');
+  private toolbarBrowserProxy_: ToolbarBrowserProxy =
+      ToolbarBrowserProxyImpl.getInstance();
   private listenerIds_: number[] = [];
-// <if expr="not is_android">
+  private toolbarListenerIds_: number[] = [];
+  // <if expr="not is_android">
   private helpBubbleRegistered_: boolean = false;
 // </if>
 
   override connectedCallback() {
     super.connectedCallback();
-    const callbackRouter = this.browserProxy_.callbackRouter;
-    this.listenerIds_ = [
-      callbackRouter.onSidePanelPinStateChanged.addListener(
-          (isPinned: boolean) => {
+    this.listenerIds_ = [];
+    this.toolbarListenerIds_ = [
+      this.toolbarBrowserProxy_.callbackRouter.onSidePanelPinStateChanged
+          .addListener((isPinned: boolean) => {
             this.isPinned = isPinned;
           }),
-      callbackRouter.onAiPageStatusChanged.addListener(
-          (isAiPage: boolean) => {
+      this.toolbarBrowserProxy_.callbackRouter.onAiPageStatusChanged
+          .addListener((isAiPage: boolean) => {
             this.isAiPage = isAiPage;
           }),
     ];
@@ -115,6 +118,9 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
     this.listenerIds_.forEach(
         id => this.browserProxy_.callbackRouter.removeListener(id));
     this.listenerIds_ = [];
+    this.toolbarListenerIds_.forEach(
+        id => this.toolbarBrowserProxy_.callbackRouter.removeListener(id));
+    this.toolbarListenerIds_ = [];
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -149,8 +155,7 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
   }
 
   protected shouldShowPinButton_(): boolean {
-    return this.isPinButtonEnabled && this.isAiPage &&
-        this.isHandshakeComplete;
+    return this.isPinButtonEnabled && this.isAiPage;
   }
 
   protected getPinButtonTooltip_(): string {
@@ -163,10 +168,10 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
     this.isPinned = !this.isPinned;
     if (this.isPinned) {
       recordAction('ContextualTasks.WebUI.UserAction.PinSidePanel');
-      this.browserProxy_.handler.pinSidePanel();
+      this.toolbarBrowserProxy_.handler.pinSidePanel();
     } else {
       recordAction('ContextualTasks.WebUI.UserAction.UnpinSidePanel');
-      this.browserProxy_.handler.unpinSidePanel();
+      this.toolbarBrowserProxy_.handler.unpinSidePanel();
     }
     this.dispatchEvent(new CustomEvent('pin-click'));
   }
@@ -174,32 +179,32 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
   protected onThreadHistoryClick_() {
     this.close();
     recordAction('ContextualTasks.WebUI.UserAction.OpenThreadHistory');
-    this.browserProxy_.handler.showThreadHistory();
+    this.toolbarBrowserProxy_.handler.showThreadHistory();
   }
 
   protected onOpenInNewTabClick_() {
     this.close();
     recordAction('ContextualTasks.WebUI.UserAction.OpenInNewTab');
-    this.browserProxy_.handler.moveTaskUiToNewTab();
+    this.toolbarBrowserProxy_.handler.moveTaskUiToNewTab();
   }
 
   protected onMyActivityClick_() {
     this.close();
     recordAction('ContextualTasks.WebUI.UserAction.OpenMyActivity');
-    this.browserProxy_.handler.openMyActivityUi();
+    this.toolbarBrowserProxy_.handler.openMyActivityUi();
   }
 
   protected onHelpClick_() {
     this.close();
     recordAction('ContextualTasks.WebUI.UserAction.OpenHelp');
-    this.browserProxy_.handler.openOverflowMenuHelpUi();
+    this.toolbarBrowserProxy_.handler.openOverflowMenuHelpUi();
   }
 
 
   protected onFeedbackClick_() {
     this.close();
     recordAction('ContextualTasks.WebUI.UserAction.OpenFeedback');
-    this.browserProxy_.handler.openFeedbackUi();
+    this.toolbarBrowserProxy_.handler.openFeedbackUi();
   }
 
   protected onNewThreadClick_() {

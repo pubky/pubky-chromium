@@ -41,6 +41,10 @@ void ThumbnailSchedulerImpl::AddTab(TabCapturer* tab) {
 }
 
 void ThumbnailSchedulerImpl::RemoveTab(TabCapturer* tab) {
+  // Explicitly set the priority to `kNone` to ensure the corresponding
+  // `TabNode` is unlinked from `hi_prio_waiting_`, `lo_prio_waiting_`,
+  // `hi_prio_capturing_`, or `lo_prio_capturing_` as appropriate.
+  SetTabCapturePriority(tab, TabCapturePriority::kNone);
   int num_removed = tabs_.erase(tab);
   DCHECK_EQ(1, num_removed) << "removed a tab that was never added";
 }
@@ -78,7 +82,7 @@ void ThumbnailSchedulerImpl::Schedule(TabNode* tab_node,
         // deschedule discarded tabs when their priority transitions to kNone.
         // This should be corrected once WebContentsDiscard lands and the old
         // discarding code path is cleaned up.
-        NOTREACHED(base::NotFatalUntil::M154);
+        NOTREACHED(base::NotFatalUntil::M160);
         return;
       case TabCapturePriority::kLow:
         lo_prio_capture_count_ -= 1;

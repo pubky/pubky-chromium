@@ -676,6 +676,56 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Blink.CapabilityElement.Geolocation.PositionError.Reason"
+    enum="CapabilityElementGeolocationPositionErrorReason"
+    expires_after="2027-04-01">
+  <owner>tungnh@chromium.org</owner>
+  <owner>ravjit@chromium.org</owner>
+  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+  <summary>
+    Records the error reason when a geolocation element's location query fails.
+    Recorded once per failed geolocation request when the initial error callback
+    is invoked.
+  </summary>
+</histogram>
+
+<histogram name="Blink.CapabilityElement.Geolocation.RequestResult"
+    enum="CapabilityElementGeolocationResult" expires_after="2027-04-01">
+  <owner>tungnh@chromium.org</owner>
+  <owner>ravjit@chromium.org</owner>
+  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+  <summary>
+    Records whether a geolocation query initiated by a geolocation element
+    succeeded or failed. Recorded once per geolocation request when the initial
+    position or error callback is invoked.
+  </summary>
+</histogram>
+
+<histogram name="Blink.CapabilityElement.Geolocation.TimeToError" units="ms"
+    expires_after="2027-04-01">
+  <owner>tungnh@chromium.org</owner>
+  <owner>ravjit@chromium.org</owner>
+  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+  <summary>
+    Records the time elapsed from when a geolocation element initiates a
+    location request to when the error callback is invoked. Recorded once per
+    failed geolocation request when the initial error callback is invoked.
+  </summary>
+</histogram>
+
+<histogram name="Blink.CapabilityElement.Geolocation.TimeToPosition" units="ms"
+    expires_after="2027-04-01">
+  <owner>tungnh@chromium.org</owner>
+  <owner>ravjit@chromium.org</owner>
+  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+  <summary>
+    Records the time elapsed from when a geolocation element initiates a
+    location request to when the position callback is invoked with a successful
+    fix. Recorded once per successful geolocation request when the initial
+    position callback is invoked.
+  </summary>
+</histogram>
+
 <histogram
     name="Blink.CapabilityElement.{CapabilityType}.GumApi.OverconstrainedError"
     enum="Boolean" expires_after="2027-06-02">
@@ -1880,26 +1930,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Blink.FedCm.CloseVerifySheet.Android" enum="Boolean"
-    expires_after="2027-02-14">
-  <owner>yigu@chromium.org</owner>
-  <owner>web-identity-eng@google.com</owner>
-  <summary>
-    Records whether the UI that a user is closing is the verify sheet or not on
-    Android. Records at most one sample per API call.
-  </summary>
-</histogram>
-
-<histogram name="Blink.FedCm.CloseVerifySheet.Desktop" enum="Boolean"
-    expires_after="2027-02-28">
-  <owner>yigu@chromium.org</owner>
-  <owner>web-identity-eng@google.com</owner>
-  <summary>
-    Records whether the UI that a user is closing is the verify sheet or not on
-    desktop. Records at most one sample per API call.
-  </summary>
-</histogram>
-
 <histogram name="Blink.FedCm.ContinueOn.PopupWindowResult"
     enum="FedCmContinueOnPopupResult" expires_after="2027-09-05">
   <owner>yigu@chromium.org</owner>
@@ -2117,30 +2147,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records whether the user selected account is for sign-in or not. Records at
     most one sample per API call.
-  </summary>
-</histogram>
-
-<histogram name="Blink.FedCm.JavaObjectCreationOutcome.Active"
-    enum="FedCmJavaObjectCreationOutcome" expires_after="2027-09-05">
-  <owner>yigu@chromium.org</owner>
-  <owner>web-identity-eng@google.com</owner>
-  <summary>
-    The Java object is tied to the bottomsheet availability so it may not be
-    creatable when we need it. Records one sample each time we request creating
-    the object in active mode. Recorded whenever native is talking with the
-    Android side which could be multiple times per API call.
-  </summary>
-</histogram>
-
-<histogram name="Blink.FedCm.JavaObjectCreationOutcome.Passive"
-    enum="FedCmJavaObjectCreationOutcome" expires_after="2027-09-05">
-  <owner>yigu@chromium.org</owner>
-  <owner>web-identity-eng@google.com</owner>
-  <summary>
-    The Java object is tied to the bottomsheet availability so it may not be
-    creatable when we need it. Records one sample each time we request creating
-    the object in passive mode. Recorded whenever native is talking with the
-    Android side which could be multiple times per API call.
   </summary>
 </histogram>
 
@@ -6329,6 +6335,30 @@ chromium-metrics-reviews@google.com.
     <variant name="WebGL2"/>
     <variant name="WebGPU"/>
   </token>
+</histogram>
+
+<histogram name="MemoryCache.PruneStrongReferences.Time" units="ms"
+    expires_after="2027-03-14">
+  <owner>aattar@google.com</owner>
+  <owner>src/third_party/blink/renderer/platform/loader/OWNERS</owner>
+  <summary>
+    Measures the time spent pruning strong references in the Blink MemoryCache
+    using the standard FIFO eviction policy. Recorded each time
+    MemoryCache::PruneStrongReferences() runs when strong reference pruning is
+    needed.
+  </summary>
+</histogram>
+
+<histogram name="MemoryCache.PruneTieredStrongReferences.Time" units="ms"
+    expires_after="2027-03-14">
+  <owner>aattar@google.com</owner>
+  <owner>src/third_party/blink/renderer/platform/loader/OWNERS</owner>
+  <summary>
+    Measures the time spent pruning strong references in the Blink MemoryCache
+    using the value-based tiered eviction policy. Recorded each time
+    MemoryCache::PruneTieredStrongReferences() runs when strong reference
+    pruning is needed.
+  </summary>
 </histogram>
 
 </histograms>

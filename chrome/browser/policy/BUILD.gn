@@ -355,7 +355,10 @@ source_set("policy_specific_browser_tests") {
     "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/media/webrtc",
+    "//chrome/browser/net",
+    "//chrome/browser/policy",
     "//chrome/browser/preloading:prefs",
+    "//chrome/browser/profiles:misc",
     "//chrome/browser/ui/autofill",
     "//chrome/common",
     "//chrome/test:test_support",
@@ -364,6 +367,7 @@ source_set("policy_specific_browser_tests") {
     "//components/content_settings/core/common",
     "//components/heap_profiling/in_process",
     "//components/policy/core/common",
+    "//components/policy/core/common:test_support",
     "//components/prefs",
     "//components/proxy_config",
     "//components/safe_browsing:buildflags",
@@ -374,6 +378,9 @@ source_set("policy_specific_browser_tests") {
     "//components/unified_consent",
     "//content/test:test_support",
     "//media",
+    "//services/cert_verifier/public/mojom",
+    "//services/network:test_support",
+    "//services/network/public/mojom",
     "//testing/gmock",
   ]
 
@@ -432,6 +439,7 @@ source_set("policy_specific_browser_tests") {
       "//chrome/browser/profiles",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/task_manager",
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/browser_window",
       "//components/autofill/content/browser:test_support",
       "//components/autofill/core/browser",
@@ -646,6 +654,7 @@ source_set("browser_tests") {
     sources += [ "cloud/component_cloud_policy_browsertest.cc" ]
 
     deps += [
+      "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/test:test_support",
     ]
@@ -1280,7 +1289,7 @@ source_set("impl") {
     "//chrome/browser/ui/toolbar/chrome_labs",
     "//chrome/browser/ui/webui/version",
     "//chrome/browser/webauthn",
-    "//components/autofill/core/browser/at_memory/policy",
+    "//components/autofill/core/browser/policy",
     "//components/blocked_content",
     "//components/bookmarks/managed",
     "//components/certificate_transparency",
@@ -1400,6 +1409,7 @@ source_set("impl") {
 
   if (is_win || is_mac || is_linux || is_chromeos) {
     sources += [ "gemini_enterprise_settings_policy_handler.cc" ]
+    deps += [ "//chrome/browser/glic/gemini_enterprise:url_allowlist" ]
   }
 
   if (!is_android) {

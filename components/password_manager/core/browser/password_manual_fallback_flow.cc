@@ -137,6 +137,7 @@ bool PasswordManualFallbackFlow::SupportsSuggestionType(
     case autofill::SuggestionType::kViewPasswordDetails:
     case autofill::SuggestionType::kAllSavedPasswordsEntry:
     case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case autofill::SuggestionType::kWebauthnPasskeyQrCode:
       return true;
     default:
       return false;
@@ -198,6 +199,15 @@ void PasswordManualFallbackFlow::OnSuggestionsShown(
       password_manager_driver_, field_id_.renderer_id);
   manual_fallback_metrics_recorder_->OnDidShowSuggestions(
       IsTriggerFieldRelevantInPasswordForm(form));
+
+  if (std::ranges::contains(suggestions,
+                            autofill::SuggestionType::kWebauthnPasskeyQrCode,
+                            &Suggestion::type)) {
+    if (autofill::PasswordManagerDelegate* password_manager_delegate =
+            password_manager_driver_->GetPasswordManagerDelegate()) {
+      password_manager_delegate->OnWebauthnInlineQrCodeSuggestionShown();
+    }
+  }
 }
 
 void PasswordManualFallbackFlow::OnSuggestionsHidden(
@@ -259,6 +269,7 @@ void PasswordManualFallbackFlow::DidSelectSuggestion(
       break;
     }
     case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case autofill::SuggestionType::kWebauthnPasskeyQrCode:
       if (auto* password_manager_delegate =
               password_manager_driver_->GetPasswordManagerDelegate()) {
         password_manager_delegate->SelectSuggestion(suggestion);
@@ -368,6 +379,7 @@ void PasswordManualFallbackFlow::DidAcceptSuggestion(
           password_client_->IsOffTheRecord());
       break;
     case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case autofill::SuggestionType::kWebauthnPasskeyQrCode:
       if (auto* password_manager_delegate =
               password_manager_driver_->GetPasswordManagerDelegate()) {
         password_manager_delegate->AcceptSuggestion(suggestion, metadata);

@@ -7715,7 +7715,19 @@ void RenderFrameHostImpl::ClearUserActivation() {
   last_user_activation_consumed_time_ = base::TimeTicks();
 }
 
-void RenderFrameHostImpl::ConsumeTransientUserActivation() {
+bool RenderFrameHostImpl::ConsumeTransientUserActivation() {
+  // Only an active frame that currently holds transient user activation may
+  // consume it
+  if (!IsActive() || !HasTransientUserActivation()) {
+    return false;
+  }
+  CHECK(owner_);
+  return owner_->UpdateUserActivationState(
+      blink::mojom::UserActivationUpdateType::kConsumeTransientActivation,
+      blink::mojom::UserActivationNotificationType::kNone);
+}
+
+void RenderFrameHostImpl::ConsumeTransientUserActivationLocal() {
   if (user_activation_state_.ConsumeIfActive()) {
     last_user_activation_consumed_time_ = base::TimeTicks::Now();
   }
@@ -8469,7 +8481,10 @@ void RenderFrameHostImpl::UpdateSubresourceLoaderFactories() {
 
 void RenderFrameHostImpl::UpdateLocalResourceLoader(
     blink::mojom::LocalResourceLoaderConfigPtr loader_config) {
-  local_resource_loader_config_ = loader_config.Clone();
+  // `loader_config` is a move-only mojo::StructPtr passed by value. Since
+  // nothing else has a reference to it and it will be destroyed at the end of
+  // the scope, move it to avoid an expensive deep clone.
+  local_resource_loader_config_ = std::move(loader_config);
 }
 
 blink::FrameOwnerElementType RenderFrameHostImpl::GetFrameOwnerElementType() {
@@ -11186,6 +11201,17 @@ void RenderFrameHostImpl::CreateNewPopupWidget(
     return;
   }
 
+  // Form-control popups require and consume transient user activation, which
+  // we enforce on the browser side to guard against compromised renderers.
+  CHECK(owner_);
+  if (base::FeatureList::IsEnabled(
+          blink::features::kPopupWidgetRequiresUserActivation) &&
+      !owner_->UpdateUserActivationState(
+          blink::mojom::UserActivationUpdateType::kConsumeTransientActivation,
+          blink::mojom::UserActivationNotificationType::kNone)) {
+    return;
+  }
+
   // We still need to allocate a widget routing id. Even though the renderer
   // doesn't receive it, the browser side still uses routing ids to track
   // widgets in various global tables.
@@ -11583,6 +11609,15 @@ void RenderFrameHostImpl::HandleAXEvents(
     return;
   }
 
+  if (!updates_and_events.HasValidAXNodeIDsFromRenderer() ||
+      !location_and_scroll_updates.HasValidAXNodeIDsFromRenderer()) {
+    if (report_bad_message_callback) {
+      std::move(report_bad_message_callback)
+          .Run("Invalid AXNodeID from renderer.");
+    }
+    return;
+  }
+
   // Don't process this IPC if either we're waiting on a reset and this IPC
   // doesn't have the matching token ID.
   // The token prevents obsolete data from being processed.
@@ -11716,6 +11751,14 @@ void RenderFrameHostImpl::HandleAXLocationChanges(
       reset_token != kAccessibilityResetTokenForTesting) {
     std::move(report_bad_message_callback)
         .Run("Unexpected accessibility message.");
+    return;
+  }
+
+  if (!changes.HasValidAXNodeIDsFromRenderer()) {
+    if (report_bad_message_callback) {
+      std::move(report_bad_message_callback)
+          .Run("Invalid AXNodeID from renderer.");
+    }
     return;
   }
 
@@ -12815,7 +12858,9 @@ void RenderFrameHostImpl::CommitNavigation(
           url_loader_factory::CreatePendingRemote(
               ContentBrowserClient::URLLoaderFactoryType::kDocumentSubResource,
               url_loader_factory::TerminalParams::ForNonNetwork(
-                  CreateWebUIURLLoaderFactory(this, effective_scheme, {}),
+                  CreateWebUIURLLoaderFactory(
+                      this, effective_scheme, {},
+                      subresource_loader_factories_config.origin()),
                   GetProcess()->GetDeprecatedID()),
               url_loader_factory::ContentClientParams(
                   browser_context, this, GetProcess()->GetDeprecatedID(),
@@ -14976,6 +15021,20 @@ void RenderFrameHostImpl::GetPresentationService(
   presentation_service_->Bind(std::move(receiver));
 }
 
+void RenderFrameHostImpl::GetPresentationReceiverService(
+    mojo::PendingReceiver<blink::mojom::PresentationReceiverService> receiver) {
+  if (!IsOutermostMainFrame()) {
+    mojo::ReportBadMessage(
+        "PresentationReceiverService can only be bound by an outermost "
+        "document.");
+    return;
+  }
+  if (!presentation_service_) {
+    presentation_service_ = PresentationServiceImpl::Create(this);
+  }
+  presentation_service_->BindReceiverService(std::move(receiver));
+}
+
 PresentationServiceImpl&
 RenderFrameHostImpl::GetPresentationServiceForTesting() {
   CHECK(presentation_service_);
@@ -17126,17 +17185,35 @@ void RenderFrameHostImpl::MaybeGenerateCrashReport(
       break;
     case base::TERMINATION_STATUS_OOM:
     case base::TERMINATION_STATUS_EVICTED_FOR_MEMORY:
-#if BUILDFLAG(IS_CHROMEOS)
-    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM:
-      if (exit_code == RESULT_CODE_KILLED_BAD_MESSAGE) {
-        break;
-      }
-#endif
 #if BUILDFLAG(IS_ANDROID)
     case base::TERMINATION_STATUS_OOM_PROTECTED:
 #endif
       reason = "oom";
       break;
+#if BUILDFLAG(IS_CHROMEOS)
+    case base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM:
+      // On ChromeOS, GetTerminationStatus() maps any SIGKILL to
+      // TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM, even when the process was
+      // killed by the browser (e.g. via TerminateInternal() for a bad IPC
+      // message, or via GetKnownDeadTerminationStatus() while reaping an
+      // unresponsive or shutting-down renderer). Check |is_oom|,
+      // |is_unresponsive|, and |exit_code| before attributing the kill to OOM.
+      if (is_oom) {
+        reason = "oom";
+      } else if (is_unresponsive) {
+        reason = "unresponsive";
+      } else if (exit_code == RESULT_CODE_KILLED_BAD_MESSAGE) {
+        // Report bad-message kills as generic crashes with no reason.
+      } else if (exit_code == RESULT_CODE_NORMAL_EXIT ||
+                 exit_code == RESULT_CODE_KILLED) {
+        // An intentional browser-initiated shutdown or Task Manager kill that
+        // was reaped with SIGKILL should not be reported.
+        return;
+      } else {
+        reason = "oom";
+      }
+      break;
+#endif
     default:
       // Other termination statuses do not indicate a crash.
       return;
@@ -19066,7 +19143,8 @@ void RenderFrameHostImpl::PerformGetAssertionWebAuthSecurityChecks(
           : WebAuthRequestSecurityChecker::RequestType::kGetAssertion;
   blink::mojom::AuthenticatorStatus status =
       GetWebAuthRequestSecurityCheckerImpl()->ValidateAncestorOrigins(
-          effective_origin, request_type, &is_cross_origin);
+          effective_origin, request_type,
+          /*uses_remote_client_data_json=*/false, &is_cross_origin);
   if (status != blink::mojom::AuthenticatorStatus::SUCCESS) {
     std::move(callback).Run(status, is_cross_origin);
     return;
@@ -19141,7 +19219,8 @@ void RenderFrameHostImpl::PerformMakeCredentialWebAuthSecurityChecks(
           : WebAuthRequestSecurityChecker::RequestType::kMakeCredential;
   blink::mojom::AuthenticatorStatus status =
       GetWebAuthRequestSecurityCheckerImpl()->ValidateAncestorOrigins(
-          effective_origin, request_type, &is_cross_origin);
+          effective_origin, request_type,
+          /*uses_remote_client_data_json=*/false, &is_cross_origin);
   if (status != blink::mojom::AuthenticatorStatus::SUCCESS) {
     std::move(callback).Run(status, is_cross_origin);
     return;
@@ -19210,7 +19289,7 @@ void RenderFrameHostImpl::PerformReportWebAuthSecurityChecks(
   blink::mojom::AuthenticatorStatus status =
       GetWebAuthRequestSecurityCheckerImpl()->ValidateAncestorOrigins(
           effective_origin, WebAuthRequestSecurityChecker::RequestType::kReport,
-          &is_cross_origin);
+          /*uses_remote_client_data_json=*/false, &is_cross_origin);
   if (status != blink::mojom::AuthenticatorStatus::SUCCESS) {
     std::move(callback).Run(status, is_cross_origin);
     return;

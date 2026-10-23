@@ -33,6 +33,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
@@ -2064,7 +2065,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
                         "/simple_test_page.html"}));
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest, CantInspectRemoteNewTabPage) {
+// TODO(b/565566308): Re-enable once failure on Android is resolved.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_CantInspectRemoteNewTabPage DISABLED_CantInspectRemoteNewTabPage
+#else
+#define MAYBE_CantInspectRemoteNewTabPage CantInspectRemoteNewTabPage
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
+                       MAYBE_CantInspectRemoteNewTabPage) {
   net::EmbeddedTestServer https_test_server(
       net::EmbeddedTestServer::TYPE_HTTPS);
   https_test_server.SetSSLConfig(
@@ -2670,7 +2678,6 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, TestSettings) {
   CloseDevToolsWindow();
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 // Tests that external navigation from inspector page is always handled by
 // DevToolsWindow and results in inspected page navigation.  See also
 // https://crbug.com/40077090.
@@ -2689,6 +2696,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, TestDevToolsExternalNavigation) {
   CloseDevToolsWindow();
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 // Tests that toolbox window is loaded when DevTools window is undocked.
 // TODO(crbug.com/40929457) - Fix this failing browser test.
 IN_PROC_BROWSER_TEST_F(DevToolsTest, DISABLED_TestToolboxLoadedUndocked) {
@@ -4495,6 +4503,112 @@ IN_PROC_BROWSER_TEST_F(DevToolsPolicyBFCacheTest,
   EXPECT_TRUE(DevToolsWindow::FindDevToolsWindow(agent_host.get()));
 }
 
+// This test relies on DeveloperToolsAvailability policies which are
+// not supported on Android.
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+class DevToolsPolicyExtensionTest : public extensions::ExtensionApiTest {
+ protected:
+  DevToolsPolicyExtensionTest() {
+    provider_.SetDefaultReturns(
+        /*is_initialization_complete_return=*/true,
+        /*is_first_policy_load_complete_return=*/true);
+    policy::BrowserPolicyConnector::SetPolicyProviderForTesting(&provider_);
+  }
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+    extensions::ExtensionApiTest::SetUpOnMainThread();
+  }
+  testing::NiceMock<policy::MockConfigurationPolicyProvider> provider_;
+};
+
+IN_PROC_BROWSER_TEST_F(DevToolsPolicyExtensionTest,
+                       CannotAttachToBlocklistedIframe) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  GURL main_url =
+      embedded_test_server()->GetURL("/devtools/page_with_two_iframes.html");
+  GURL iframe_url =
+      embedded_test_server()->GetURL("a.com", "/devtools/iframe.html");
+  GURL allowed_iframe_url =
+      embedded_test_server()->GetURL("b.com", "/devtools/empty.html");
+
+  base::ListValue allowlist;
+  allowlist.Append(main_url.spec());
+  allowlist.Append(allowed_iframe_url.spec());
+
+  policy::PolicyMap policies;
+  policies.Set(policy::key::kDeveloperToolsAvailability,
+               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+               policy::POLICY_SOURCE_CLOUD, base::Value(2), nullptr);
+  policies.Set(policy::key::kDeveloperToolsAvailabilityAllowlist,
+               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
+               policy::POLICY_SOURCE_CLOUD, base::Value(std::move(allowlist)),
+               nullptr);
+  provider_.UpdateChromePolicy(policies);
+  base::RunLoop().RunUntilIdle();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  ASSERT_TRUE(content::ExecJs(
+      browser()->tab_strip_model()->GetActiveWebContents(),
+      content::JsReplace(
+          "let f1 = document.createElement('iframe'); f1.src = $1; "
+          "document.body.appendChild(f1);"
+          "let f2 = document.createElement('iframe'); f2.src = $2; "
+          "document.body.appendChild(f2);",
+          iframe_url, allowed_iframe_url)));
+
+  extensions::TestExtensionDir dir;
+  dir.WriteManifest(R"({
+    "name": "Debugger Test",
+    "version": "1.0",
+    "manifest_version": 3,
+    "permissions": ["debugger", "tabs"],
+    "host_permissions": ["http://*/*"],
+    "background": {
+      "service_worker": "background.js"
+    }
+  })");
+
+  std::string background_js = base::StringPrintf(R"(
+    chrome.test.runTests([
+      async function testAttach() {
+        let tabs = await chrome.tabs.query({url: "%s"});
+        let tab = tabs[0];
+
+        let gotIframe = false;
+        let gotAllowedIframe = new Promise(resolve => {
+          chrome.debugger.onEvent.addListener((source, method, params) => {
+            if (method === "Target.attachedToTarget") {
+              if (params.targetInfo.url.endsWith("/iframe.html")) {
+                gotIframe = true;
+              } else if (params.targetInfo.url.endsWith("/empty.html")) {
+                resolve();
+              }
+            }
+          });
+        });
+
+        await chrome.debugger.attach({tabId: tab.id}, "1.3");
+
+        await chrome.debugger.sendCommand(
+            {tabId: tab.id}, "Target.setAutoAttach",
+            {autoAttach: true, waitForDebuggerOnStart: false});
+        await gotAllowedIframe;
+
+        chrome.test.assertFalse(
+            gotIframe,
+            "Should not auto-attach or directly attach to blocked iframe");
+        chrome.test.succeed();
+      }
+    ]);
+  )",
+                                                 main_url.spec().c_str());
+
+  dir.WriteFile(FILE_PATH_LITERAL("background.js"), background_js);
+
+  ASSERT_TRUE(RunExtensionTest(dir.UnpackedPath(), {}, {}));
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 class DevToolsExtensionHostsPolicyTest : public DevToolsExtensionTest {
  protected:
@@ -5226,6 +5340,7 @@ IN_PROC_BROWSER_TEST_P(DevToolsConfirmInfoBarTest, ConcurrentRequestHandling) {
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Runs against the legacy and the centralized infobar; behavior must match.
 class DevToolsProcessPerSiteTest
@@ -5249,6 +5364,8 @@ class DevToolsProcessPerSiteTest
   ~DevToolsProcessPerSiteTest() override = default;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
+    DevToolsProcessPerSiteUpToMainFrameThresholdTest::SetUpCommandLine(
+        command_line);
     command_line->AppendSwitch(switches::kProcessPerSite);
   }
 
@@ -5264,6 +5381,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                                              : "LegacyInfobar";
                          });
 
+#if !BUILDFLAG(IS_ANDROID)
 // TODO(https://crbug.com/328693031): Flaky on Linux dbg.
 #if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
 #define MAYBE_DevToolsSharedProcessInfobar DISABLED_DevToolsSharedProcessInfobar
@@ -5314,66 +5432,49 @@ IN_PROC_BROWSER_TEST_P(DevToolsProcessPerSiteTest,
   ASSERT_EQ(undocked_infobar_manager->infobars()[0]->GetIdentifier(),
             infobars::InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
-// Observe that the active tab has changed.
-class ActiveTabChangedObserver : public TabStripModelObserver {
- public:
-  explicit ActiveTabChangedObserver(TabStripModel* tab_strip_model) {
-    tab_strip_model->AddObserver(this);
-  }
-
-  void OnTabStripModelChanged(
-      TabStripModel* tab_strip_model,
-      const TabStripModelChange& change,
-      const TabStripSelectionChange& selection) override {
-    if (change.type() == TabStripModelChange::kSelectionOnly &&
-        tab_strip_model->active_index() == 0) {
-      loop_.Quit();
-      return;
-    }
-  }
-
-  void Wait() { loop_.Run(); }
-
- private:
-  base::RunLoop loop_;
-};
-
-// TODO: crbug.com/337141755 - Flaky on Windows ASAN.
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
-#define MAYBE_PausedDebuggerFocus DISABLED_PausedDebuggerFocus
-#else
-#define MAYBE_PausedDebuggerFocus PausedDebuggerFocus
-#endif
-IN_PROC_BROWSER_TEST_P(DevToolsProcessPerSiteTest, MAYBE_PausedDebuggerFocus) {
+IN_PROC_BROWSER_TEST_P(DevToolsProcessPerSiteTest, PausedDebuggerFocus) {
   const GURL url = embedded_test_server()->GetURL("foo.test", "/hello.html");
 
-  auto* tab_strip_model = browser()->tab_strip_model();
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  auto* devtools_window = DevToolsWindowTesting::OpenDevToolsWindowSync(
-      tab_strip_model->GetWebContentsAt(0), true);
-  ASSERT_TRUE(AddTabAtIndexToBrowser(browser(), 1, url,
-                                     ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false));
-  ASSERT_EQ(2, tab_strip_model->count());
-  ASSERT_EQ(
-      tab_strip_model->GetWebContentsAt(0)->GetPrimaryMainFrame()->GetProcess(),
-      tab_strip_model->GetWebContentsAt(1)
-          ->GetPrimaryMainFrame()
-          ->GetProcess());
-  ASSERT_EQ(1, tab_strip_model->active_index());
+  auto* tab_list = TabListInterface::From(browser_window_interface());
+  ASSERT_TRUE(NavigateToURL(GetInspectedTab(), url));
+  tabs::TabInterface* tab1 = tab_list->OpenTab(url, 1);
+  ASSERT_TRUE(tab1);
+  // Wait for `tab1` to submit a compositor frame before opening DevTools and
+  // pausing the shared renderer process so its InputRouter becomes active and
+  // does not filter out the mouse click due to paint holding.
+  content::RenderFrameSubmissionObserver frame_observer(tab1->GetContents());
+  ASSERT_TRUE(content::WaitForLoadStop(tab1->GetContents()));
+  if (!frame_observer.render_frame_count()) {
+    frame_observer.WaitForAnyFrameSubmission();
+  }
+  ASSERT_EQ(2, tab_list->GetTabCount());
+  ASSERT_EQ(GetWebContentsAt(0)->GetPrimaryMainFrame()->GetProcess(),
+            GetWebContentsAt(1)->GetPrimaryMainFrame()->GetProcess());
+  ASSERT_EQ(1, tab_list->GetActiveIndex());
 
-  ASSERT_TRUE(content::ExecJs(tab_strip_model->GetWebContentsAt(0),
+  auto* devtools_window =
+      DevToolsWindowTesting::OpenDevToolsWindowSync(GetWebContentsAt(0), true);
+  tab_list->ActivateTab(tab1->GetHandle());
+  ASSERT_EQ(1, tab_list->GetActiveIndex());
+
+  ASSERT_TRUE(content::ExecJs(GetWebContentsAt(0),
                               "setTimeout(() => {debugger;}, 0);"));
   DispatchOnTestSuite(devtools_window, "waitForDebuggerPaused");
-  ActiveTabChangedObserver active_tab_observer(tab_strip_model);
-  content::SimulateMouseClick(tab_strip_model->GetActiveWebContents(), 0,
+  base::test::TestFuture<tabs::TabInterface*> active_tab_future;
+  base::CallbackListSubscription subscription =
+      tab_list->GetTab(0)->RegisterDidActivate(
+          active_tab_future.GetRepeatingCallback());
+  content::SimulateMouseClick(GetActiveWebContents(), 0,
                               blink::WebMouseEvent::Button::kLeft);
-  active_tab_observer.Wait();
-  ASSERT_EQ(0, tab_strip_model->active_index());
+  ASSERT_TRUE(active_tab_future.Wait());
+  ASSERT_EQ(0, tab_list->GetActiveIndex());
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools_window);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 class DevToolsConsoleInsightsTest : public DevToolsTest {
  public:
   DevToolsConsoleInsightsTest() {

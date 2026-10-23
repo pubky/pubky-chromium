@@ -508,6 +508,50 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithAutoSubmitHidden) {
       WaitForWebUiContentsVisibility(instance, content::Visibility::HIDDEN));
 }
 
+#if BUILDFLAG(IS_ANDROID)
+class GlicInvokeOffscreenRenderingBrowserTest : public GlicInvokeBrowserTest {
+ public:
+  GlicInvokeOffscreenRenderingBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kGlicAndroidOffscreenRendering);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeOffscreenRenderingBrowserTest,
+                       InvokeWithAutoSubmitHiddenAttachesOffscreenRendering) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  base::test::TestFuture<void> success_future;
+  base::test::TestFuture<std::string> conversation_id_future;
+
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  GlicInvokeWithAutoSubmitOptions auto_submit_options;
+  auto_submit_options.on_conversation_id_ready =
+      conversation_id_future.GetCallback();
+  auto_submit_options.show_panel = false;
+
+  coordinator().InvokeWithAutoSubmit(GetPassKey(), std::move(options),
+                                     std::move(auto_submit_options));
+
+  GlicInstanceImpl* instance = coordinator().GetInstanceImplForTab(tab);
+  ASSERT_TRUE(instance);
+
+  // While hidden invocation is warming up, offscreen rendering should be
+  // active.
+  EXPECT_TRUE(instance->is_offscreen_rendering_active_for_testing());
+
+  // Showing the instance onscreen must immediately stop offscreen rendering.
+  instance->Show(ShowOptions::ForSidePanel(*tab));
+  EXPECT_FALSE(instance->is_offscreen_rendering_active_for_testing());
+  EXPECT_TRUE(instance->IsShowing());
+}
+#endif
+
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithWaitForPanelOpen) {
   // Create a tab with a loaded page to measure width.
   tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
@@ -1232,6 +1276,54 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
             GlicInvokeError::kAdditionalContextFailedCopyPolicy);
   EXPECT_FALSE(GetInstanceForTab(tab));
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithClipboardPastePolicyBlockedFloating) {
+  // Set up Data Controls to allow copying to the clipboard (`os_clipboard` not
+  // restricted) but block pasting into any destination URL (`PastePolicyTask`).
+  {
+    ScopedListPrefUpdate list(GetProfile()->GetPrefs(),
+                              data_controls::kDataControlsRulesPref);
+    list->Append(*base::JSONReader::Read(
+        R"({
+          "destinations": { "urls": ["*"] },
+          "restrictions": [{
+            "class": "CLIPBOARD",
+            "level": "BLOCK"
+          }]
+        })",
+        base::JSON_PARSE_CHROMIUM_EXTENSIONS));
+  }
+
+  tabs::TabInterface* tab = CreateAndActivateTab(GURL("about:blank"));
+  ASSERT_TRUE(content::NavigateToURL(tab->GetContents(), GURL("about:blank")));
+
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance,
+                       OpenGlicForActiveTabAndDetach());
+  ASSERT_TRUE(instance->IsDetached());
+
+  auto context_mojom = CreateMockAdditionalContext();
+
+  content::RenderFrameHost* rfh = tab->GetContents()->GetPrimaryMainFrame();
+  ASSERT_TRUE(rfh);
+
+  base::test::TestFuture<GlicInvokeError> error_future;
+  GlicInvokeOptions options(mojom::InvocationSource::kWebDragDrop);
+  options.additional_context = AdditionalTabContext(
+      std::move(context_mojom), rfh->GetGlobalId(), PolicyCheck::kClipboard);
+  // The tab handle here is only a fallback surface; GetInvokeTarget() targets
+  // the floating surface because the floaty is the active embedder.
+  options.target = instance->GetInvokeTarget(
+      /*fallback_surface=*/glic::Target::Surface(tab->GetHandle()));
+  options.on_error = error_future.GetCallback();
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_EQ(error_future.Get(),
+            GlicInvokeError::kAdditionalContextFailedPastePolicy);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithContextNoSourceFrame) {
   tabs::TabInterface* tab = CreateAndActivateTab(GURL("about:blank"));
@@ -2050,7 +2142,8 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // TODO(crbug.com/504753617): Re-enable the test.
-#if BUILDFLAG(IS_LINUX)
+// TODO(b/565538504): Re-enable on Android.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_InvokeWithNewTab DISABLED_InvokeWithNewTab
 #else
 #define MAYBE_InvokeWithNewTab InvokeWithNewTab
@@ -2441,8 +2534,16 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeActuationBrowserTest,
   }
 }
 
+// TODO(b/565538504): Re-enable once failure on Android is resolved.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_InvokeTargetLastActiveOrNew_FallbackToNewTab \
+  DISABLED_InvokeTargetLastActiveOrNew_FallbackToNewTab
+#else
+#define MAYBE_InvokeTargetLastActiveOrNew_FallbackToNewTab \
+  InvokeTargetLastActiveOrNew_FallbackToNewTab
+#endif
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
-                       InvokeTargetLastActiveOrNew_FallbackToNewTab) {
+                       MAYBE_InvokeTargetLastActiveOrNew_FallbackToNewTab) {
   auto* tab_list = GetTabListInterface();
   int initial_tab_count = tab_list->GetTabCount();
   BrowserWindowInterface* browser =

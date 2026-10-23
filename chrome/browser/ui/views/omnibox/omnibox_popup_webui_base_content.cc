@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
+#include "chrome/browser/ui/views/omnibox/full_webui_omnibox_frame.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_context_menu.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
@@ -169,7 +170,10 @@ void OmniboxPopupWebUIBaseContent::OnLocationBarBoundsChanged() {
 
   int width =
       location_bar_width +
-      RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets().width();
+      (is_full_webui_omnibox()
+           ? FullWebUIOmniboxFrame::GetLocationBarAlignmentInsets().width()
+           : RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets()
+                 .width());
 
   if (popup_presenter_) {
     width = std::max(width, popup_presenter_->get_minimum_size().width());
@@ -543,8 +547,8 @@ void OmniboxPopupWebUIBaseContent::Detach() {
   }
 
   // Avoid color mode flicking.
-  // When kOmniboxFullWebUIDestroyWidgetOnHide is enabled the widget is
-  // destroyed on hide, then the Webcontents will fall back to use system's
+  // When a widget destroy-on-hide flag is enabled the widget is destroyed on
+  // hide, then the Webcontents will fall back to use system's
   // color mode, which can be different from the browser's color mode.
   views::Widget* location_bar_widget =
       popup_presenter_->delegate().GetLocationBarWidget();

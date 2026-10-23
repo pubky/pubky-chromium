@@ -20,6 +20,7 @@
 #import "components/feed/feed_feature_list.h"
 #import "components/image_fetcher/ios/ios_image_data_fetcher_wrapper.h"
 #import "components/keyed_service/core/service_access_type.h"
+#import "components/ntp_tiles/features.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/pref_names.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
@@ -72,6 +73,8 @@
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_coordinator.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service_factory.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
@@ -877,6 +880,12 @@
     ChromeAccountManagerService* accountManagerService =
         ChromeAccountManagerServiceFactory::GetForProfile(profile);
 
+    AimEligibilityService* aimEligibilityService =
+        ntp_tiles::GetAimButtonRefactorArm() ==
+                ntp_tiles::AimButtonRefactorArm::kAimAsMvt
+            ? _aimEligibilityService
+            : nil;
+
     _mostVisitedTilesMediator = [[MostVisitedTilesMediator alloc]
         initWithMostVisitedSite:std::move(mostVisitedFactory)
                  historyService:historyService
@@ -887,7 +896,8 @@
                                     self.browser)
           accountManagerService:accountManagerService
               engagementTracker:engagementTracker
-              layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)];
+              layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)
+          aimEligibilityService:aimEligibilityService];
     _mostVisitedTilesMediator.contentSuggestionsDelegate =
         self.contentSuggestionsCoordinator.delegate;
     _mostVisitedTilesMediator.actionFactory = [[BrowserActionFactory alloc]
@@ -1582,6 +1592,21 @@
   RecordHomeAction(IOSHomeActionType::kMostVisitedTile, [self isStartSurface]);
 }
 
+- (void)aimInMostVisitedOpened {
+  if (ntp_tiles::GetAimButtonRefactorArm() ==
+      ntp_tiles::AimButtonRefactorArm::kAimAsMvt) {
+    RecordHomeAction(IOSHomeActionType::kAimInMostVisited,
+                     [self isStartSurface]);
+    [self.NTPMetricsRecorder recordAIMButtonTapped];
+  }
+}
+
+- (void)standaloneAIMModuleOpened {
+  RecordHomeAction(IOSHomeActionType::kStandaloneAIMModule,
+                   [self isStartSurface]);
+  [self.NTPMetricsRecorder recordAIMButtonTapped];
+}
+
 - (void)shortcutTileOpened {
   RecordMagicStackClick(ContentSuggestionsModuleType::kShortcuts,
                         [self isStartSurface]);
@@ -2104,6 +2129,23 @@
   if (page == CustomizationMenuPage::kMain) {
     tracker->NotifyEvent(
         feature_engagement::events::kHomeBackgroundCustomizationMenuUsed);
+    if (IsNTPEphemeralThemeEnabled()) {
+      tracker->NotifyEvent(
+          feature_engagement::events::kEphemeralThemePromoUsed);
+    }
+  }
+}
+
+// Applies and stores the cached ephemeral theme if no custom background or
+// color theme is currently set (or if an ephemeral theme is already active).
+- (void)maybeApplyEphemeralTheme {
+  if (!self.profile || !IsNTPEphemeralThemeEnabled()) {
+    return;
+  }
+  HomeBackgroundCustomizationService* backgroundCustomizationService =
+      HomeBackgroundCustomizationServiceFactory::GetForProfile(self.profile);
+  if (backgroundCustomizationService) {
+    backgroundCustomizationService->MaybeApplyEphemeralTheme();
   }
 }
 
@@ -2204,6 +2246,20 @@
   _aimBubblePresenter = presenter;
 }
 
+// Returns `YES` if conditions to focus on Composebox are met.
+- (BOOL)canFocusComposebox {
+  if (!_aimEligibilityService->IsFuseboxEligible()) {
+    return NO;
+  }
+
+  if (ntp_tiles::GetAimButtonRefactorArm() !=
+      ntp_tiles::AimButtonRefactorArm::kFocusComposeboxAimQuickAction) {
+    return NO;
+  }
+
+  return YES;
+}
+
 #pragma mark - HomeCustomizationDelegate
 
 - (void)dismissCustomizationMenu {
@@ -2251,13 +2307,27 @@
 - (void)openAIM {
   RecordHomeAction(IOSHomeActionType::kQuickActionAIM, [self isStartSurface]);
   [self.NTPMetricsRecorder recordAIMButtonTapped];
-  if (!IsDisableComposeboxFromAIMNTPEnabled() &&
-      _aimEligibilityService->IsFuseboxEligible() &&
+
+  if ([self canFocusComposebox] &&
       MaybeShowComposebox(self.browser, ComposeboxEntrypoint::kNTPAIMButton)) {
     return;
   }
 
   [self openAIMWeb];
+}
+
+- (void)openAIMImageGeneration {
+  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
+           ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
+  // TODO(crbug.com/549020046): Implement this method and add metrics recording
+  // hooks.
+}
+
+- (void)openAIMAttachImage {
+  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
+           ntp_tiles::AimButtonRefactorArm::kAttachImageQuickAction);
+  // TODO(crbug.com/549020046): Implement this method and add metrics recording
+  // hooks.
 }
 
 - (void)preloadVoiceSearch {
@@ -2332,7 +2402,9 @@
 }
 
 - (void)showHomeBackgroundCustomizationPromoWithUIHandler:
-    (id<PromosManagerUIHandler>)uiHandler {
+            (id<PromosManagerUIHandler>)uiHandler
+                                shouldAlertFETOfDismissal:
+                                    (BOOL)shouldAlertFETOfDismissal {
   // The promo includes an in-product help bubble for the menu button itself.
   if (self.browser) {
     [HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands)
@@ -2341,9 +2413,10 @@
   }
 
   if (_customizationCoordinator) {
-    // Make sure to alert the coordinator that user education is active, so it
+    // Make sure to alert the coordinator if user education is active, so it
     // can alert the Feature Engagement Tracker on dismissal.
-    _customizationCoordinator.openedForUserEducation = YES;
+    _customizationCoordinator.openedForUserEducation =
+        shouldAlertFETOfDismissal;
     _customizationCoordinator.promosManagerUIHandler = uiHandler;
     return;
   }
@@ -2354,10 +2427,14 @@
   [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
                                HomeCustomizationEntrypoint::kPromo];
 
+  // Apply and store the cached ephemeral theme if no custom background or
+  // color theme is currently set.
+  [self maybeApplyEphemeralTheme];
+
   [self openCustomizationMenuAtPage:CustomizationMenuPage::kMain animated:YES];
-  // Make sure to alert the coordinator that user education is active, so it can
+  // Make sure to alert the coordinator if user education is active, so it can
   // alert the Feature Engagement Tracker on dismissal.
-  _customizationCoordinator.openedForUserEducation = YES;
+  _customizationCoordinator.openedForUserEducation = shouldAlertFETOfDismissal;
   _customizationCoordinator.promosManagerUIHandler = uiHandler;
 }
 

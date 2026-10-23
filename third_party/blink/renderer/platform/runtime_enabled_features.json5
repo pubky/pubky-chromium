@@ -548,6 +548,13 @@
     },
     {
       name: "AISummarizationPerformancePreference",
+      status: {
+        "Win": "experimental",
+        "Mac": "experimental",
+        "Linux": "experimental",
+        "ChromeOS": "experimental",
+        "default": "",
+      },
     },
     {
       name: "AIWriterAPI",
@@ -1212,7 +1219,7 @@
       // behaviors are triggered. It should not affect behavior.
       // This flag shipped in M155 and can be removed in M158.
       name: "CleanUpActivationBehavior",
-      status: "stable",
+      status: "experimental",
     },
     {
       // Set currentTarget to null after dispatch for EventTarget.
@@ -1596,7 +1603,7 @@
       // https://drafts.csswg.org/css-backgrounds/#layering
       // https://github.com/w3c/csswg-drafts/issues/7164
       name: "CSSBackgroundLayerCountIndependence",
-      status: "test",
+      status: "experimental",
     },
     // https://chromestatus.com/feature/5459864205393920
     {
@@ -1711,6 +1718,13 @@
       // https://github.com/w3c/csswg-drafts/issues/14052
       name: "CSSFlowStartAndEnd",
       status: "experimental",
+    },
+    {
+      // Serialize 'flex-start' and 'flex-end' as 'flow-start' and 'flow-end'
+      // in computed styles.
+      // https://github.com/w3c/csswg-drafts/issues/14052
+      name: "CSSFlowStartAndEndSerialization",
+      depends_on: ["CSSFlowStartAndEnd"],
     },
     {
       // crbug.com/483689942
@@ -2048,7 +2062,7 @@
     },
     {
       name: "CSSScrollSnapTypePair",
-      status: "experimental",
+      status: "stable",
     },
     {
       // scroll-target-group property
@@ -2124,7 +2138,7 @@
     },
     {
       name: "CSSTextDecorationSkipSpaces",
-      status: "stable",
+      status: "experimental",
     },
     {
       // crbug.com/417306102
@@ -2624,6 +2638,12 @@
       // See https://crbug.com/443612843
       name: "EditContextAssignmentAsPerSpec",
       status: "test"
+    },
+    {
+      // Support code point-based deletion calculations in
+      // DeleteSurroundingTextInCodePoints() for EditContext.
+      name: "EditContextCodePointDeletion",
+      status: "stable",
     },
     {
       // See https://crbug.com/379170477
@@ -3332,6 +3352,11 @@
       name: "FragmentedOofInCb",
     },
     {
+      // crbug.com/570740320
+      name: "FrameCaretSkipHiddenCheck",
+      status: "stable",
+    },
+    {
       name: "FrameSerializerNoWebEntities",
       status: "stable",
     },
@@ -3764,10 +3789,8 @@
       // Enables InputMultipleFieldsUI on all platforms by tweaking the inner
       // fields to be non-focusable and making the whole input element
       // focusable for coarse input devices. When this flag is removed, the
-      // InputMultipleFieldsUI flag can also be removed. Enabled in M154, safe
-      // to remove in M158.
+      // InputMultipleFieldsUI flag can also be removed.
       name: "InputMultipleFieldsUIWithPointerChecks",
-      status: "stable",
     },
     // Enables the `alpha` and `colorspace` content/IDL attributes on
     // <input type=color>, allowing alpha and Display P3 color values.
@@ -3895,6 +3918,10 @@
       status: "stable",
     },
     {
+      name: "LayoutContainingBlockReturnsBox",
+      status: "stable",
+    },
+    {
       name: "LayoutIgnoreMarginsForSticky",
     },
     {
@@ -3916,6 +3943,13 @@
       // https://crbug.com/469111735
       name: "LazyLoadVideoAndAudio",
       status: "stable",
+    },
+    {
+      // Defers parsing of declaration blocks in inline <style> elements until
+      // a rule is first matched, the same treatment network-fetched
+      // stylesheets already get in StyleSheetContents::ParseAuthorStyleSheet.
+      // Rules that never match never pay for their declarations.
+      name: "LazyParseInlineStyleSheets",
     },
     {
       // Allow triggering the word suggestion from left click.
@@ -4032,6 +4066,11 @@
       // explainer: https://github.com/WICG/delayed-message-timing
       name: "LongAnimationFrameWorker",
       status: "test",
+    },
+    {
+      // https://crbug.com/572893186
+      name: "LongPressHitTestInFrame",
+      status: "stable",
     },
     {
       // Long press on a link selects the link text instead of bringing up
@@ -4287,6 +4326,10 @@
       status: "test",
       base_feature: "none",
       custom_enable_check: "CanEnableMojoJSTest",
+    },
+    // Optimization for monospace text.
+    {
+      name: "MonospaceGlyphCompaction",
     },
     // Move the selection to the last position in the list item. See
     // https://crbug.com/331841851
@@ -4855,6 +4898,15 @@
       status: "stable",
     },
     {
+      // Kill switch for requiring and consuming transient user activation in
+      // the browser process when creating a form-control popup widget,
+      // guarding against compromised renderers opening popups without a user
+      // gesture.
+      // See https://crbug.com/506152584.
+      name: "PopupWidgetRequiresUserActivation",
+      status: "stable",
+    },
+    {
       name: "PositionOutsideTabSpanCheckSiblingNode",
       status: "stable",
     },
@@ -4863,6 +4915,13 @@
       // visibility to ignore non-clipping ancestors.
       name: "PositionVisibilityIgnoreNonClipAncestors",
       status: "stable",
+    },
+    {
+      // Enables the "singular" versions of two values for the CSS
+      // `position-visibility` property: `anchor-valid` and `anchor-visible`.
+      // See crbug.com/526682332.
+      name: "PositionVisibilitySingularValues",
+      status: "experimental",
     },
     {
       name: "PotentialPermissionsPolicyReporting",
@@ -5322,9 +5381,7 @@
     {
       name: "RTCDiagnosticLogging",
       origin_trial_feature_name: "RTCDiagnosticLogging",
-      status: "experimental",
-      base_feature_status: "enabled",
-      copied_from_base_feature_if: "overridden",
+      status: {"Android": "", "default": "stable"},
     },
     {
       name: "RTCEncodedAudioFrameConstructor",
@@ -5369,6 +5426,11 @@
       origin_trial_feature_name: "RTCLegacyCallbackBasedGetStats",
       status: "experimental",
       base_feature: "none",
+    },
+    {
+      name: "RTCLegacyDiagnosticLogging",
+      origin_trial_feature_name: "RTCDiagnosticLogging",
+      status: "experimental",
     },
     // Enables the use of |RTCRtpEncodingParameters.codec|
     {
@@ -5628,7 +5690,6 @@
       // https://github.com/whatwg/html/issues/12227
       name: "SelectedcontentelementAttribute",
       status: "experimental",
-      depends_on: ["SelectedcontentSpec"],
     },
     {
       // Makes the <selectedcontent> element work in <select multiple> by
@@ -5637,14 +5698,7 @@
       // https://issues.chromium.org/issues/483769482
       name: "SelectedcontentMultiple",
       status: "experimental",
-      depends_on: ["SelectedcontentSpec", "CustomizableSelectMultiplePopup"],
-    },
-    {
-      // Aligns the implementation of the <selectedcontent> element with the
-      // HTML spec. https://issues.chromium.org/issues/458113204
-      // Enabled in M151, safe to remove in M153.
-      name: "SelectedcontentSpec",
-      status: "stable",
+      depends_on: ["CustomizableSelectMultiplePopup"],
     },
     {
       // See https://crbug.com/40664519
@@ -5778,6 +5832,13 @@
     {
       // V8 Code Cache for resource requests passing through Service Worker.
       name: "ServiceWorkerCodeCache",
+      status: "stable",
+    },
+    {
+      // Enforces SHA-256 source hash verification for V8 code caches on
+      // scripts fetched via Service Worker (crbug.com/547815507).
+      name: "ServiceWorkerCodeCacheHashing",
+      status: "stable",
     },
     {
       // Support for Service Worker APIs in Dedicated Workers.
@@ -6109,6 +6170,12 @@
     },
     {
       name: "SubApps",
+      status: "stable",
+    },
+    // Killswitch to guard capturing the subframe owner element instead of the
+    // inner element on mouse press.
+    {
+      name: "SubframeMouseCaptureOwner",
       status: "stable",
     },
     // 'pointercancel' and boundary leave ('pointerout' and 'pointerleave')
@@ -6452,6 +6519,12 @@
       status: "stable",
     },
     {
+      // Killswitch for the time picker offering only the values that the step
+      // attribute allows.
+      name: "TimePickerHonorsStep",
+      status: "stable",
+    },
+    {
       name: "TimerThrottlingForBackgroundTabs",
       public: true,
       status: "stable",
@@ -6559,11 +6632,6 @@
       //
       // This feature acts as a kill switch for https://crbug.com/40580002.
       name: "TreatMhtmlInitialDocumentLoadsAsCrossDocument",
-      status: "stable",
-    },
-    {
-      // crbug.com/451651633
-      name: "TreeRubyPlacement",
       status: "stable",
     },
     {

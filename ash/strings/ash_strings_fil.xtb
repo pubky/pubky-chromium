@@ -685,7 +685,6 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng <ph na
 <translation id="3039491566278747710">Hindi na-install ang offline na patakaran sa device.</translation>
 <translation id="3039939407102840004">Nasa <ph name="PERCENTAGE" /> (na) porsyento ang baterya ng stylus.</translation>
 <translation id="304097922505898963">Buksan ang Key Shortcuts app</translation>
-<translation id="3040982432432547149">Tulungan kaming pahusayin ang Steam para sa Chromebook</translation>
 <translation id="304417730895741346">Nasa shelf ang iyong mga naka-pin at nakabukas na app. Para mag-pin ng app sa shelf, mag-right click sa isang app o i-tap ang iyong touchpad gamit ang dalawang daliri.</translation>
 <translation id="3045670165536837541">Napiling handle sa kanang bahagi sa itaas, gamitin ang mga arrow key para ilipat ito</translation>
 <translation id="3046178388369461825">Kaunting-kaunti na lang ang espasyo sa Linux disk</translation>
@@ -1080,7 +1079,6 @@ Isaksak ang iyong device.</translation>
 <translation id="4147911968024186208">Pakisubukang muli. Kung makikita mong muli ang error na ito, makipag-ugnayan sa iyong kinatawan ng suporta.</translation>
 <translation id="4150201353443180367">Display</translation>
 <translation id="4151054805501931758">Pag-touch up ng portrait</translation>
-<translation id="4151449637210235443">Sabihin sa amin ang tungkol sa iyong kamakailang gameplay</translation>
 <translation id="4156293514828496577"><ph name="PERCENTAGE" />% na lang ang baterya (humigit-kumulang <ph name="TIME_LEFT" />).
 Limitado ang ilang feature para mapatagal ang baterya.</translation>
 <translation id="4158003972857765638">Ayusin sa isang bagong desk</translation>
@@ -1235,7 +1233,7 @@ Limitado ang ilang feature para mapatagal ang baterya.</translation>
 <translation id="4556953949326137018">Kapag gumamit ka ng mga suggested action tulad ng “idagdag sa Calendar” o “gumawa ng mga Google Doc,” ipapadala sa mga server ng Google ang content mula sa napiling area para magmungkahi ng mga aksyon, na napapailalim sa <ph name="LINK_TO_SERVICE_TERMS" />. Huwag maglagay ng kahit anong personal, sensitibo, o kumpidensyal.</translation>
 <translation id="4560576029703263363">Naka-on</translation>
 <translation id="4561267230861221837">3G</translation>
-<translation id="4562091353415772246">Mag-install ng mga update at app. Sa pamamagitan ng pagpapatuloy, sumasang-ayon kang posible ring awtomatikong mag-download at mag-install ang device na ito ng mga update at app mula sa Google, iyong carrier, at manufacturer ng device mo, na posibleng gumamit ng cellular data. Posibleng mag-alok ang ilan sa mga app na ito ng mga in-app na pagbili. <ph name="BEGIN_LINK1" />Matuto pa tungkol sa awtomatikong pag-install sa pamamagitan ng Play<ph name="BEGIN_LINK1_END" /><ph name="END_LINK1" /></translation>
+<translation id="4562091353415772246">Mag-install ng mga update at app. Sa pamamagitan ng pagpapatuloy, sumasang-ayon kang posibleng awtomatikong mag-download at mag-install ang device na ito ng mga update at app mula sa Google, iyong carrier, at manufacturer ng device mo, posibleng gamit ang cellular data. Posibleng mag-alok ang ilan sa mga app na ito ng mga in-app na pagbili. <ph name="BEGIN_LINK1" />Matuto pa tungkol sa awtomatikong pag-install sa pamamagitan ng Play<ph name="BEGIN_LINK1_END" /><ph name="END_LINK1" /></translation>
 <translation id="4563880231729913339">Daliri 3</translation>
 <translation id="4565377596337484307">Itago ang password</translation>
 <translation id="4569753163207712681">Tingnan ang mga kamakailang larawan, media, at app ng iyong telepono</translation>

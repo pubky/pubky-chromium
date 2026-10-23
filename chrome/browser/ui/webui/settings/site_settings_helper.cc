@@ -241,8 +241,8 @@ constexpr auto kContentSettingsTypeGroupNames = std::to_array<
     {ContentSettingsType::DIRECT_SOCKETS, nullptr},
     {ContentSettingsType::REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS, nullptr},
     {ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO, nullptr},
-    // TODO(crbug.com/368266658): Implement the UI for Direct Sockets PNA.
-    {ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS, nullptr},
+    {ContentSettingsType::DEPRECATED_DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS,
+     nullptr},
     {ContentSettingsType::LEGACY_COOKIE_SCOPE, nullptr},
     {ContentSettingsType::ARE_SUSPICIOUS_NOTIFICATIONS_ALLOWLISTED_BY_USER,
      nullptr},
@@ -1446,7 +1446,8 @@ base::ListValue GetChooserExceptionListFromProfile(
       continue;
     }
 
-    std::u16string name = chooser_context->GetObjectDisplayName(object->value);
+    std::u16string name =
+        chooser_context->GetObjectDisplayNameForUI(object->value);
     auto& chooser_exception_details = all_chooser_objects[std::make_pair(
         name, base::Value(object->value.Clone()))];
 

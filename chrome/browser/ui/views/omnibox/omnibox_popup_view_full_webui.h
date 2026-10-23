@@ -10,7 +10,12 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "ui/gfx/range/range.h"
+
+namespace content {
+class NavigationHandle;
+}
 
 class LocationBar;
 class OmniboxController;
@@ -18,7 +23,8 @@ class OmniboxView;
 class OmniboxPopupPresenterDelegate;
 class OmniboxPopupHandler;
 
-class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
+class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI,
+                                  public content::WebContentsObserver {
  public:
   OmniboxPopupViewFullWebUI(
       OmniboxView* omnibox_view,
@@ -43,12 +49,12 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   void SaveStateToTab(content::WebContents* tab) override;
   // Called when the active tab changes.
   void OnTabChanged(content::WebContents* contents) override;
-  bool IsHandlingTabChange() const override;
   // Called when the native omnibox gains focus. If the popup state changed,
   // synchronizes full input state (`SyncNativeStateToWebUI()`). If the popup
   // was already open, sends a dedicated `SetFocus(true)` Mojo IPC to ensure
   // DOM input focus in the WebUI is restored without resetting input state.
   void OnFocus(bool query_zps, bool select_all) override;
+  void FocusSearchWithDefaultSearchEngineKeywordMode() override;
   // Called when the native omnibox loses focus. Sends a dedicated
   // `SetFocus(false)` Mojo IPC to ensure DOM input focus in the WebUI is
   // cleared.
@@ -58,6 +64,10 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   bool IsPopupHandlerReady() const override;
   bool IsReverting() const override;
   void SetIsReverting(bool reverting) override;
+
+  // content::WebContentsObserver:
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
   // True if this has focus, reckoned by OnFocus/OnBlur. This may be slightly
   // out-of-sync with the model's when doing auto-focus, since the timings of
@@ -88,7 +98,6 @@ class OmniboxPopupViewFullWebUI : public OmniboxPopupViewWebUI {
   std::optional<gfx::Range> last_consumed_native_selection_;
 
   bool has_completed_first_tab_changed_ = false;
-  bool is_handling_tab_change_ = false;
   bool is_reverting_ = false;
   bool focused_ = false;
   // Invoked when the WebUI Mojo handler connects to trigger one-time focus

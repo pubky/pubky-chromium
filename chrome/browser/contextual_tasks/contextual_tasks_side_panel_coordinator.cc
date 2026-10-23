@@ -333,6 +333,29 @@ ContextualTasksPanelController* ContextualTasksPanelController::From(
       window->GetUnownedUserDataHost());
 }
 
+// static
+bool ContextualTasksPanelController::IsWebContentsInPanel(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return false;
+  }
+  BrowserWindowInterface* browser =
+      webui::GetBrowserWindowInterface(web_contents);
+  if (!browser) {
+    return false;
+  }
+  auto* controller = From(browser);
+  if (!controller) {
+    return false;
+  }
+  for (auto* wc : controller->GetPanelWebContentsList()) {
+    if (wc == web_contents) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ContextualTasksSidePanelCoordinator::RecordTimeToFirstContentfulPaint(
     content::WebContents* web_contents) {
   if (!web_contents) {
@@ -823,15 +846,14 @@ ContextualTasksSidePanelCoordinator::GetWebContentsCacheItemForWebContents(
 void ContextualTasksSidePanelCoordinator::OnTabAdded(TabListInterface& tab_list,
                                                      tabs::TabInterface* tab,
                                                      int index) {
-  content::WebContents* content = tab->GetContents();
-
-  // Background tabs opened via hotkey commands (e.g. Ctrl+Click, middle-click)
-  // or context menus should not inherit task association from the opener,
-  // unless clobbering is enabled.
-  if (!contextual_tasks::IsContextualTasksClobberActiveTabEnabled() &&
-      tab_list.GetActiveTab() != tab) {
+  // Do not inherit task association from the opener tab if the side panel is
+  // not open (e.g. when the panel was closed and only the ephemeral button
+  // remains, or when viewing a full-tab Contextual Tasks page).
+  if (!IsPanelOpenForContextualTask()) {
     return;
   }
+
+  content::WebContents* content = tab->GetContents();
 
   // If the new tab is already associated with a task, do nothing.
   if (contextual_tasks_service_->GetContextualTaskForTab(
@@ -1019,12 +1041,20 @@ bool ContextualTasksSidePanelCoordinator::UpdateWebContentsForActiveTab() {
   }
 
   content::WebContents* web_contents = GetPanelWebContentsForActiveTab();
-  if (web_contents) {
-    contextual_tasks_panel_host_->SetWebContents(web_contents);
-  }
 
   bool contents_changed = prev_web_contents != web_contents;
   if (contents_changed) {
+    // The toolbar UI itself and location bar class are shared across tasks.
+    // Update the single location bar and permission controller to point to
+    // `web_contents` (OR clear the toolbar if `web_contents` is null) and push
+    // the updated state to the WebUI. This must run before `SetWebContents()`
+    // to have the correct web contents, as `SetWebContents()`
+    // synchronously marks `web_contents` visible and may trigger
+    // `PermissionRequestManager` to query `location_bar_->GetWebContents()`.
+    if (permission_controller_) {
+      permission_controller_->Update(web_contents);
+    }
+    contextual_tasks_panel_host_->SetWebContents(web_contents);
     NotifyExpandToFullTabStateChanged();
   }
 
@@ -1128,8 +1158,14 @@ void ContextualTasksSidePanelCoordinator::MaybeCreateCachedWebContents(
     ui_service->SetInitialEntryPointForTask(task_id, entry_point);
     GURL url;
     if (IsContextualTasksSidePanelRearchitectureEnabled()) {
-      url = ui_service->GetInitialUrlForTask(task_id).value_or(
-          GURL("about:blank"));
+      if (std::optional<GURL> initial_url =
+              ui_service->GetInitialUrlForTask(task_id)) {
+        url = *initial_url;
+      } else if (ui_service->IsTaskWaitingForUrl(task_id)) {
+        url = GURL("about:blank");
+      } else {
+        url = ui_service->GetDefaultAiPageUrlForTask(task_id);
+      }
     } else {
       url = ui_service->GetContextualTaskUrlForTask(task_id);
     }
@@ -1225,6 +1261,9 @@ void ContextualTasksSidePanelCoordinator::MaybeDetachWebContents(
     content::WebContents* web_contents) {
   if (web_contents == GetActiveWebContents()) {
     contextual_tasks_panel_host_->SetWebContents(nullptr);
+    if (permission_controller_) {
+      permission_controller_->Update(nullptr);
+    }
   }
 }
 
@@ -1497,7 +1536,9 @@ void ContextualTasksSidePanelCoordinator::OnEligibilityChange(
     if (auto* action_item = actions::ActionManager::Get().FindAction(
             kActionSidePanelShowContextualTasks,
             BrowserActions::From(browser_window_)->root_action_item())) {
-      action_item->SetVisible(is_eligible);
+      action_item->SetVisible(
+          EntryPointEligibilityManager::IsPinningEligible(
+              browser_window_->GetProfile()));
     }
   }
 #endif

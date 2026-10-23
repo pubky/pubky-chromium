@@ -53,6 +53,12 @@ struct GeminiContainerUIState {
 // Current UI state of the container.
 @property(nonatomic, readonly) GeminiContainerUIState currentUIState;
 
+// Current processing status of the Gemini client.
+@property(nonatomic, readonly) ios::provider::GeminiClientMode processingStatus;
+
+// Current view mode of the Gemini UI (e.g. floaty or live).
+@property(nonatomic, readonly) ios::provider::GeminiViewMode viewMode;
+
 // Resets and applies the initial container UI state.
 - (void)setupInitialUIState;
 
@@ -82,6 +88,9 @@ struct GeminiContainerUIState {
 // Returns whether the container should be dismissed in its current state (i.e.
 // when floaty is minimized in zero state with Chrome Next IA enabled).
 - (BOOL)shouldBeDismissed;
+
+// Returns whether the Gemini UI is currently in Live mode.
+- (BOOL)isInGeminiLiveMode;
 
 // Disconnects and resets internal state and timer.
 - (void)reset;

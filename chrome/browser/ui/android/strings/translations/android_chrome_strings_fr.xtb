@@ -889,7 +889,6 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="4535755320005483982">Groupe d'onglets <ph name="GROUP_TITLE" /> partagé</translation>
 <translation id="4537137366307982887">Activation des notifications de conseils ouverte à pleine hauteur</translation>
 <translation id="4537987892902330164">Vous êtes resté connecté en tant que <ph name="NAME_OR_EMAIL" />.</translation>
-<translation id="4543131175509360848">Aucune feuille de clés d'accès</translation>
 <translation id="4547551584605870320">{TAB_COUNT,plural, =1{<ph name="TAB_COUNT_ONE" /> onglet}one{<ph name="TAB_COUNT_MANY" /> onglet, <ph name="TAB_COUNT_INCOGNITO" /> en navigation privée}other{<ph name="TAB_COUNT_MANY" /> onglets, <ph name="TAB_COUNT_INCOGNITO" /> en navigation privée}}</translation>
 <translation id="4558311620361989323">Raccourcis de pages Web</translation>
 <translation id="4572422548854449519">Connexion à un compte géré</translation>
@@ -934,6 +933,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="4719927025381752090">Proposer de traduire</translation>
 <translation id="4720556299488643018">Désabonner</translation>
 <translation id="4732120983431207637">Dérouleur de pile</translation>
+<translation id="4734965478015604180">Horizontal</translation>
 <translation id="4736934858538408121">Carte virtuelle</translation>
 <translation id="473775607612524610">Mettre à jour</translation>
 <translation id="4738065825338914557">Désabonnement…</translation>
@@ -982,6 +982,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="488187801263602086">Renommer le fichier</translation>
 <translation id="4885273946141277891">Le nombre d'instances de Chrome n'est pas compatible.</translation>
 <translation id="4890973535105146893">Aucun mot de passe enregistré dans votre compte Google</translation>
+<translation id="490375751687810070">Vertical</translation>
 <translation id="4905823827770127520">Inclure un lien à la page</translation>
 <translation id="4910889077668685004">Applications de paiement</translation>
 <translation id="4911042367886397055">Bon retour parmi nous, <ph name="USER_NAME" /> !</translation>
@@ -1287,6 +1288,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="6192907950379606605">Obtenir descriptions images</translation>
 <translation id="6193448654517602979">Sélectionner des onglets</translation>
 <translation id="6196315980958524839">Les mots de passe sont enregistrés dans le Gestionnaire de mots de passe de Google sur cet appareil</translation>
+<translation id="6200780647297916498">Position de l'onglet</translation>
 <translation id="6204781143409202534">Chrome a détecté un spam potentiel de <ph name="DOMAIN" />.</translation>
 <translation id="6211386937064921208">Aperçu de cette page</translation>
 <translation id="6212567362666004597">Ajouter l'onglet à un groupe</translation>
@@ -1694,6 +1696,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="7630202231528827509">URL du fournisseur</translation>
 <translation id="7638584964844754484">Phrase secrète incorrecte.</translation>
 <translation id="764047009170754705">Activation de Chrome Finds fermée</translation>
+<translation id="7645712301713737707">Personnaliser la disposition de vos onglets pour qu'ils s'affichent en haut ou sur le côté de votre navigateur.</translation>
 <translation id="7646499124171960488">Vous avertit pour les sites publics non sécurisés</translation>
 <translation id="7655240423373329753">sept derniers jours</translation>
 <translation id="7656721520530864426">Aucun site</translation>
@@ -2000,6 +2003,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="8816556050903368450">Lien inclus : <ph name="ORIGIN" /></translation>
 <translation id="881688628773363275">Le contenu de l'onglet "Aperçu" n'est pas visible.</translation>
 <translation id="8820817407110198400">Favoris</translation>
+<translation id="8822533681006532064">Pour parler à Gemini, autorisez-le à utiliser votre micro. Vous pouvez aussi gérer cela dans les <ph name="BEGIN_LINK" />paramètres<ph name="END_LINK" />.</translation>
 <translation id="8840953339110955557">Cette page peut différer de la version en ligne.</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8849001918648564819">Masqué</translation>
@@ -2035,7 +2039,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="8969796057708736017">Le téléchargement aura lieu si le fichier respecte les règles de votre organisation</translation>
 <translation id="8970887620466824814">Un problème est survenu</translation>
 <translation id="8972098258593396643">Télécharger dans le dossier par défaut ?</translation>
-<translation id="8987736167266086032">Reprenez là où vous vous étiez arrêté</translation>
+<translation id="8987736167266086032">Reprenez là où vous en étiez</translation>
 <translation id="8992769679401294069">Vos données sont chiffrées avec votre phrase secrète. Saisissez-la pour utiliser et enregistrer les données Chrome dans votre compte Google.</translation>
 <translation id="8993760627012879038">Ouvrir un nouvel onglet en mode navigation privée</translation>
 <translation id="8995521496079646922">Les applis choisies seront utilisées par défaut. Si une appli n'est pas déjà sur cet appareil, elle sera bientôt téléchargée.</translation>
@@ -2094,7 +2098,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="916607977885256133">Picture-in-picture</translation>
 <translation id="9168847423516963845">Déplacer la barre d'adresse vers le bas</translation>
 <translation id="9169507124922466868">L'historique de navigation est ouvert à moitié</translation>
-<translation id="9183563643084679152">Vous avez scanné un QR code pour vous connecter à Chrome. Vous pourrez accéder aux mots de passe, aux favoris et à d'autres données de ce compte.</translation>
+<translation id="9183563643084679152">Vous avez scanné un QR code pour vous connecter à Chrome. Vous pourrez accéder aux mots de passe et aux favoris de ce compte, et plus encore.</translation>
 <translation id="9189607089796819144">Voulez-vous quand même télécharger "<ph name="FILE_NAME" />" (<ph name="FILE_SIZE" />) ?</translation>
 <translation id="9190276265094487094">Comme vous aurez votre historique sur tous vos appareils synchronisés, vous pourrez continuer vos activités</translation>
 <translation id="9190355771000652811">Dans la barre d'adresse, utilisez ce raccourci clavier avec les raccourcis des moteurs de recherche et de la recherche sur les sites.</translation>

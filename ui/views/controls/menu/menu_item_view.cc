@@ -132,8 +132,12 @@ MenuItemView::MenuItemView(MenuDelegate* delegate)
 
 MenuItemView::~MenuItemView() {
   SetAnchorView(nullptr);
-  if (controller_) {
-    NotifyControllerOfDestructionRecursively(this, controller_.get());
+  // Only the root item holds `controller_`, so walk up to the root to also
+  // cover destruction of a non-root subtree (e.g. via RemoveMenuItem()). This
+  // is safe because each item clears its children's `parent_menu_item_` below,
+  // before those children are destroyed.
+  if (MenuController* controller = GetMenuController()) {
+    NotifyControllerOfDestructionRecursively(this, controller);
   }
   if (submenu_) {
     for (auto* item : submenu_->GetMenuItems()) {
@@ -777,6 +781,14 @@ int MenuItemView::GetContentStart() const {
               : config.item_horizontal_padding);
 }
 
+int MenuItemView::GetTrailingPadding() const {
+  if (GetBorder()) {
+    return GetInsets().right();
+  }
+  return GetItemHorizontalBorder() +
+         MenuConfig::instance().item_horizontal_padding;
+}
+
 MenuController* MenuItemView::GetMenuController() {
   return GetRootMenuItem()->controller_.get();
 }
@@ -945,7 +957,7 @@ ProposedLayout MenuItemView::CalculateProposedLayout(
 
     if (submenu_arrow_image_view_) {
       const int right_border =
-          submenu->item_horizontal_border() +
+          submenu->trailing_padding() - config.item_horizontal_padding +
           (type_ == Type::kActionableSubMenu
                ? config.actionable_submenu_arrow_to_edge_padding
                : config.arrow_to_edge_padding);
@@ -1002,9 +1014,6 @@ bool MenuItemView::IsTraversableByKeyboard() const {
 }
 
 int MenuItemView::GetItemHorizontalBorder() const {
-  if (GetBorder()) {
-    return GetInsets().right() - MenuConfig::instance().item_horizontal_padding;
-  }
   const auto* const controller = GetMenuController();
   const MenuConfig& config = MenuConfig::instance();
   return (controller && controller->use_ash_system_ui_layout())
@@ -1305,7 +1314,8 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
     SkColor color = gfx::kPlaceholderColor;
 
     ui::ColorProvider* color_provider = GetColorProvider();
-    if (type_ == Type::kHighlighted || selected_color_id_.has_value()) {
+    if (type_ == Type::kHighlighted ||
+        (paint_as_selected && selected_color_id_.has_value())) {
       const ui::ColorId color_id = selected_color_id_.value_or(
           paint_as_selected ? ui::kColorMenuItemBackgroundSelected
                             : ui::kColorMenuItemBackgroundHighlighted);

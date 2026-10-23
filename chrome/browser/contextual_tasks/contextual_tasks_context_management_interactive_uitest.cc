@@ -14,6 +14,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/timer/timer.h"
+#include "build/build_config.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_interactive_test_base.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
@@ -93,6 +94,7 @@ DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kElementRenderedEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimSubmitEnabledEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimUploadsCompleteEvent);
 DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kAimCoinsShownEvent);
+DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kZeroStateChangedEvent);
 
 }  // namespace
 
@@ -201,6 +203,11 @@ class ContextualTasksContextManagementInteractiveTestBase
   const DeepQuery kSubmitButton = {"contextual-tasks-app", "#composebox",
                                    "#composebox", "cr-composebox-submit",
                                    "#submitContainer"};
+
+  const DeepQuery kNewThreadButton = {"contextual-tasks-app", "#toolbar",
+                                      "#newThreadButton"};
+
+  const DeepQuery kThreadFrame = {"contextual-tasks-app", "#threadFrame"};
 
   // --- Kombucha Macro Helpers ---
 
@@ -456,6 +463,48 @@ class ContextualTasksContextManagementInteractiveTestBase
     return WaitForStateChange(contents_id, state);
   }
 
+  // Verifies that the coin favicons rendered inside the Plus button match the
+  // exact set of `expected_matchers` (checked against each tab's URL or title).
+  auto VerifyPlusButtonCoinTabs(
+      const ui::ElementIdentifier& contents_id,
+      std::initializer_list<std::string_view> expected_matchers) {
+    std::vector<std::string> quoted_matchers;
+    for (std::string_view matcher : expected_matchers) {
+      quoted_matchers.push_back(base::GetQuotedJSONString(matcher));
+    }
+    const std::string matchers_json =
+        "[" + base::JoinString(quoted_matchers, ",") + "]";
+
+    StateChange state;
+    state.type = StateChange::Type::kExistsAndConditionTrue;
+    state.where = kComposeboxContainer;
+    state.test_function = base::StringPrintf(
+        R"(
+        el => {
+          const root = el.shadowRoot || el;
+          const entrypoint = root.querySelector('#contextEntrypoint');
+          const button =
+              entrypoint?.shadowRoot?.querySelector('#entrypointButton');
+          const coins =
+              button?.shadowRoot?.querySelector('composebox-favicon-group');
+          const tabs = coins?.tabs || [];
+          const expected = %s;
+          if (tabs.length !== expected.length) {
+            return false;
+          }
+          return expected.every(matcher =>
+              tabs.some(tab => {
+                const url = tab?.url?.url || tab?.url || '';
+                const title = tab?.title || '';
+                return `${url} ${title}`.includes(matcher);
+              }));
+        }
+        )",
+        matchers_json.c_str());
+    state.event = kCoinsReadyEvent;
+    return WaitForStateChange(contents_id, state);
+  }
+
   // Types and submits a text query in the side panel composebox.
   auto SubmitSidePanelQuery(const ui::ElementIdentifier& contents_id,
                             const std::string& query) {
@@ -486,6 +535,47 @@ class ContextualTasksContextManagementInteractiveTestBase
                  WaitForStateChange(contents_id, submit_enabled),
                  ExecuteJsAt(contents_id, kSubmitButton, "el => el.click()"),
                  WaitForStateChange(contents_id, input_cleared));
+  }
+
+  // Commits an AIM thread URL with `q` and `mtid` inside `#threadFrame` so
+  // `ContextualTasksUI::FrameNavObserver` transitions the current task out of
+  // zero state and associates it with `thread_id`.
+  auto CommitActiveThreadUrlInSidePanel(
+      const ui::ElementIdentifier& contents_id,
+      const std::string& query,
+      const std::string& thread_id) {
+    StateChange non_zero_state;
+    non_zero_state.type = StateChange::Type::kExistsAndConditionTrue;
+    non_zero_state.where = {"contextual-tasks-app"};
+    non_zero_state.test_function = "el => el.isZeroState_ === false";
+    non_zero_state.event = kZeroStateChangedEvent;
+
+    const std::string thread_url =
+        base::StringPrintf("https://www.google.com/search?udm=50&q=%s&mtid=%s",
+                           query.c_str(), thread_id.c_str());
+
+    return Steps(WaitForElementExists(contents_id, kThreadFrame),
+                 ExecuteJsAt(contents_id, kThreadFrame,
+                             base::StringPrintf(
+                                 "el => { el.src = %s; }",
+                                 base::GetQuotedJSONString(thread_url).c_str()),
+                             ExecuteJsMode::kFireAndForget),
+                 WaitForStateChange(contents_id, non_zero_state));
+  }
+
+  // Clicks the New Thread button in the side panel toolbar and waits for the
+  // app to transition back to zero state on the new thread.
+  auto StartNewThreadFromSidePanel(const ui::ElementIdentifier& contents_id) {
+    StateChange zero_state;
+    zero_state.type = StateChange::Type::kExistsAndConditionTrue;
+    zero_state.where = {"contextual-tasks-app"};
+    zero_state.test_function = "el => el.isZeroState_ === true";
+    zero_state.event = kZeroStateChangedEvent;
+
+    return Steps(WaitForElementExists(contents_id, kNewThreadButton),
+                 ExecuteJsAt(contents_id, kNewThreadButton, "el => el.click()",
+                             ExecuteJsMode::kFireAndForget),
+                 WaitForStateChange(contents_id, zero_state));
   }
 
   // Shows the Contextual Tasks side panel with kOmniboxPageAction invocation
@@ -623,6 +713,62 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", true));
 }
 
+IN_PROC_BROWSER_TEST_P(
+    ContextualTasksContextManagementInteractiveUiTest,
+    ClearInputPlate_RemovesUnsubmittedTabUnderlinesAndPreservesSubmittedTabs) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab1);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab2);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+  const DeepQuery kCancelIcon = {"contextual-tasks-app", "#composebox",
+                                 "#composebox", "#composeboxInput",
+                                 "#cancelIcon"};
+
+  RunTestSequence(
+      InstrumentTab(kPrimaryTab, 0), AddInstrumentedTab(kBackgroundTab1, kUrl1),
+      AddInstrumentedTab(kBackgroundTab2, kUrl2),
+      SelectTab(kTabStripElementId, 0), OpenSidePanelWithWebContents(),
+
+      // Attach Tab 1 without submitting, then click the cancel button to clear
+      // the uncommitted input plate. Its tab-strip underline must be removed.
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      VerifyUnderlinedTabs({1}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 1),
+      WaitForElementExists(kSidePanelWebContentsId, kCancelIcon),
+      ExecuteJsAt(kSidePanelWebContentsId, kCancelIcon, "el => el.click()"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 0),
+      VerifyUnderlinedTabs({}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 0),
+
+      // Re-attach Tab 1 and submit Turn 1.
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      VerifyUnderlinedTabs({1}),
+      SubmitSidePanelQuery(kSidePanelWebContentsId, "First turn query"),
+      VerifyUnderlinedTabs({1}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 1),
+
+      // In Turn 2, attach Tab 2 without submitting, then click the cancel
+      // button. Tab 2's uncommitted underline is removed while Tab 1's
+      // submitted underline and coin are preserved.
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title2"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      VerifyUnderlinedTabs({1, 2}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 2),
+      WaitForElementExists(kSidePanelWebContentsId, kCancelIcon),
+      ExecuteJsAt(kSidePanelWebContentsId, kCancelIcon, "el => el.click()"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 0),
+      VerifyUnderlinedTabs({1}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 1),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title1"}));
+}
+
 // --- Test 2: Turn 2 with no new tabs retains existing context across all
 // elements ---
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
@@ -651,6 +797,64 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
       VerifyUnderlinedTabs({1}), OpenShareTabsFlyout(kSidePanelWebContentsId),
       VerifyMenuTriggerState(kSidePanelWebContentsId, 1),
       VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true));
+}
+
+// Starting a new thread clears all tabs submitted in the previous thread while
+// showing the auto-suggested active tab on the new thread.
+IN_PROC_BROWSER_TEST_P(ContextualTasksContextManagementInteractiveUiTest,
+                       NewThread_ClearsPreviousThreadTabs) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab1);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab2);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+  const GURL kUrl3 = embedded_test_server()->GetURL("/title3.html");
+
+  RunTestSequence(
+      InstrumentTab(kPrimaryTab, 0), AddInstrumentedTab(kBackgroundTab1, kUrl1),
+      AddInstrumentedTab(kBackgroundTab2, kUrl2),
+      SelectTab(kTabStripElementId, 0), OpenSidePanelWithWebContents(),
+      NavigateWebContents(kPrimaryTab, kUrl3),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+
+      // Previous thread: Attach both background tabs in addition to the
+      // auto-suggested active tab (title3) and submit a query.
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title1"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 2),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      ToggleFlyoutTab(kSidePanelWebContentsId, "title2"),
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 3),
+      SubmitSidePanelQuery(kSidePanelWebContentsId, "First turn query"),
+      CommitActiveThreadUrlInSidePanel(kSidePanelWebContentsId,
+                                       "First+turn+query", "thread-1"),
+
+      // Verify all 3 tabs remain active in the previous thread after
+      // submission.
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 3),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId,
+                               {"title1", "title2", "title3"}),
+      VerifyUnderlinedTabs({0, 1, 2}),
+      OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 3),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", true),
+
+      // Transition to a new thread via the toolbar New Thread button.
+      StartNewThreadFromSidePanel(kSidePanelWebContentsId),
+
+      // Verify previous-thread tabs (title1 and title2) are cleared and only
+      // the auto-suggested active tab (title3) is shown on the new thread.
+      WaitForFileUploadsComplete(kSidePanelWebContentsId, 1),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 1),
+      VerifyPlusButtonCoinTabs(kSidePanelWebContentsId, {"title3"}),
+      VerifyUnderlinedTabs({0}), OpenShareTabsFlyout(kSidePanelWebContentsId),
+      VerifyMenuTriggerState(kSidePanelWebContentsId, 1),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title3", true),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title1", false),
+      VerifyFlyoutTabChecked(kSidePanelWebContentsId, "title2", false));
 }
 
 // Context uploads never complete, reproducing real network timing where the
@@ -875,6 +1079,8 @@ class ContextualTasksOmniboxContextManagementInteractiveUiTest
   // entrypoint-and-menu, so there is no `#entrypointButton` hop and no
   // `.share-tabs-flyout` here.
   const DeepQuery kAimComposebox = {"omnibox-aim-app", "#composebox"};
+  const DeepQuery kAimContextEntrypoint = {"omnibox-aim-app", "#composebox",
+                                           "#contextEntrypoint", "#entrypoint"};
   const DeepQuery kAimComposeboxInput = {"omnibox-aim-app", "#composebox",
                                          "cr-composebox-input", "#input"};
   const DeepQuery kAimSubmit = {"omnibox-aim-app", "#composebox",
@@ -1015,6 +1221,33 @@ class ContextualTasksOmniboxContextManagementInteractiveUiTest
             OmniboxContextMenuController::kFirstTabMenuItemIdForTesting)));
   }
 
+  // Clicks the AIM composebox's "+" and picks the second tab out of the native
+  // "Sharing 1 tab" / "Add tabs" submenu.
+  //
+  // This clicks via JS rather than synthesized mouse input on purpose. The AIM
+  // popup keeps resizing after the composebox renders --
+  // `OmniboxPopupWebUIBaseContent::ResizeDueToAutoResize()` debounces height
+  // changes -- so a `MoveMouseTo()`/`ClickMouse()` pair can race the widget
+  // moving out from under the cursor. The click then lands outside the popup
+  // and dismisses it instead of opening the menu. `onEntrypointClick_()`
+  // anchors the menu off `getBoundingClientRect()` rather than the event's
+  // coordinates, so a JS click is equivalent minus the race.
+  auto SelectSecondTabFromAimAddTabsMenu() {
+    return Steps(
+        InAnyContext(WaitForElementToRenderAcrossNavigation(
+            kAimPopupWebContentsId, kAimContextEntrypoint)),
+        InAnyContext(ExecuteJsAt(kAimPopupWebContentsId, kAimContextEntrypoint,
+                                 "el => el.click()")),
+        InAnyContext(WaitForShow(
+            OmniboxContextMenuController::kSharedTabsSubmenuIdForTesting)),
+        InSameContext(SelectMenuItem(
+            OmniboxContextMenuController::kSharedTabsSubmenuIdForTesting)),
+        InAnyContext(WaitForShow(
+            OmniboxContextMenuController::kSecondTabMenuItemIdForTesting)),
+        InSameContext(SelectMenuItem(
+            OmniboxContextMenuController::kSecondTabMenuItemIdForTesting)));
+  }
+
   // Waits until the AIM composebox's "+" button shows the expected number of
   // favicon coins.
   auto WaitForAimComposeboxCoins(int expected_count) {
@@ -1152,6 +1385,49 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksOmniboxContextManagementInteractiveUiTest,
       // panel's Add Tabs flyout.
       VerifyUnderlinedTabs({0}),
       VerifyPlusButtonCoins(kSidePanelWebContentsId, 1));
+}
+
+// Adding the current tab plus another tab via the omnibox context menu always
+// opens the Contextual Tasks side panel with both tabs in context.
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksOmniboxContextManagementInteractiveUiTest,
+    OmniboxAddCurrentTabAndAnotherTab_OpensSidePanelWithBothTabs) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab1);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBackgroundTab2);
+
+  const GURL kUrl1 = embedded_test_server()->GetURL("/title1.html");
+  const GURL kUrl2 = embedded_test_server()->GetURL("/title2.html");
+  const GURL kUrl3 = embedded_test_server()->GetURL("/title3.html");
+
+  RunTestSequence(
+      InstrumentTab(kPrimaryTab, 0), NavigateWebContents(kPrimaryTab, kUrl1),
+      AddInstrumentedTab(kBackgroundTab1, kUrl2),
+      AddInstrumentedTab(kBackgroundTab2, kUrl3),
+      SelectTab(kTabStripElementId, 0),
+
+      VerifyUnderlinedTabs({}),
+
+      // Select the current tab (Tab 0) from the classic omnibox "+" menu.
+      OpenOmniboxDropdown(), SelectCurrentTabFromOmniboxAddTabsMenu(),
+      InAnyContext(WaitForHide(kClassicPopupWebContentsId)),
+      WaitForAimPopupReady(), WaitForAimComposeboxCoins(1),
+      VerifyUnderlinedTabs({0}),
+
+      // Now select a second tab from the AIM composebox's "+" menu.
+      // `GetRecentTabs()` orders non-active tabs by `last_active` descending,
+      // so `kSecondTabMenuItemIdForTesting` corresponds to Tab 2 (while Tab 1
+      // remains unshared as a control).
+      SelectSecondTabFromAimAddTabsMenu(), WaitForAimComposeboxCoins(2),
+      VerifyUnderlinedTabs({0, 2}),
+
+      // Submitting with the current tab + another tab in context must open the
+      // Contextual Tasks side panel with both tabs preserved.
+      SubmitAimComposeboxQuery("Compare these two pages"),
+      InstrumentOpenedSidePanel(),
+
+      VerifyUnderlinedTabs({0, 2}),
+      VerifyPlusButtonCoins(kSidePanelWebContentsId, 2));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

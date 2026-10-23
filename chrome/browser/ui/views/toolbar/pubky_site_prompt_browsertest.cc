@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
@@ -237,7 +238,7 @@ IN_PROC_BROWSER_TEST_F(PubkySitePromptBrowserTest,
   ASSERT_TRUE(disconnect);
   // The accessible name says which site the button disconnects.
   EXPECT_NE(disconnect->GetViewAccessibility().GetCachedName().find(
-                base::ASCIIToUTF16(kSite)),
+                base::ASCIIToUTF16(std::string_view(kSite))),
             std::u16string::npos);
 
   Click(disconnect);

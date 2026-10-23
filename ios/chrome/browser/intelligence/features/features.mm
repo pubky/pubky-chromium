@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 
 BASE_FEATURE(kEnhancedCalendar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -60,7 +61,7 @@ constexpr std::array<std::string_view, 171> kDefaultEnabledCountries = {
     "za", "zm", "zw"};
 
 // Default enabled locales for PageActionMenu. Locales are
-// matching Bluebird in chrome/browser/glic/public/glic_enabling.cc.
+// matching desktop in chrome/browser/glic/public/glic_enabling.cc.
 // All locales have been converted to lower case with '-' where it's
 // applicable.
 constexpr std::array<std::string_view, 51> kDefaultEnabledLocales = {
@@ -70,6 +71,11 @@ constexpr std::array<std::string_view, 51> kDefaultEnabledLocales = {
     "mr", "ms",     "nl",    "no",    "pl",    "pt-br", "pt-pt", "ro", "ru",
     "sk", "sl",     "sr",    "sv",    "sw",    "ta",    "te",    "th", "tr",
     "uk", "vi",     "zh-cn", "zh-tw", "en-gb", "en-us"};
+
+// Default enabled locales that are iOS-specific. These are not shared with the
+// desktop list as iOS locales have slight differences.
+constexpr std::array<std::string_view, 3> kDefaultEnabledLocalesiOSOnly = {
+    "es-mx", "pt", "nb"};
 
 const char kPageActionMenuDirectEntryPointParam[] =
     "PageActionMenuDirectEntryPoint";
@@ -101,7 +107,8 @@ bool IsPageActionMenuEnabled() {
   bool is_launched_country =
       std::ranges::contains(kDefaultEnabledCountries, country);
   bool is_launched_locale =
-      std::ranges::contains(kDefaultEnabledLocales, normalized_locale);
+      std::ranges::contains(kDefaultEnabledLocales, normalized_locale) ||
+      std::ranges::contains(kDefaultEnabledLocalesiOSOnly, normalized_locale);
 
   if (is_launched_country && is_launched_locale) {
     return true;
@@ -382,11 +389,37 @@ bool IsGeminiEligibilityAblationEnabled() {
 
 BASE_FEATURE(kGeminiLive, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE_PARAM(bool,
+                   kGeminiLiveSkipIntro,
+                   &kGeminiLive,
+                   kGeminiLiveSkipIntroParam,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kGeminiLiveDisableIPH,
+                   &kGeminiLive,
+                   kGeminiLiveDisableIPHParam,
+                   false);
+
 bool IsGeminiLiveEnabled() {
   if (!IsPageActionMenuEnabled()) {
     return false;
   }
   return base::FeatureList::IsEnabled(kGeminiLive);
+}
+
+bool ShouldSkipGeminiLiveIntro() {
+  if (!IsGeminiLiveEnabled()) {
+    return false;
+  }
+  return kGeminiLiveSkipIntro.Get();
+}
+
+bool IsGeminiLiveIPHDisabled() {
+  if (!IsGeminiLiveEnabled()) {
+    return false;
+  }
+  return kGeminiLiveDisableIPH.Get();
 }
 
 BASE_FEATURE(kGeminiLiveDormantReasons, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -544,8 +577,32 @@ bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool) {
   return false;
 }
 
-BASE_FEATURE(kActorOriginGatingForNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kActorOriginGating, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kActorOriginGatingExplicitParam[] = "gate_explicit_navigation";
+const char kActorOriginGatingImplicitParam[] = "gate_implicit_navigation";
+
+BASE_FEATURE_PARAM(bool,
+                   kActorOriginGatingExplicitFeatureParam,
+                   &kActorOriginGating,
+                   kActorOriginGatingExplicitParam,
+                   true);  // Default to true when kActorOriginGating is enabled
+
+BASE_FEATURE_PARAM(bool,
+                   kActorOriginGatingImplicitFeatureParam,
+                   &kActorOriginGating,
+                   kActorOriginGatingImplicitParam,
+                   true);  // Default to true when kActorOriginGating is enabled
+
+bool IsActorOriginGatingForExplicitNavigationEnabled() {
+  return base::FeatureList::IsEnabled(kActorOriginGating) &&
+         kActorOriginGatingExplicitFeatureParam.Get();
+}
+
+bool IsActorOriginGatingForImplicitNavigationEnabled() {
+  return base::FeatureList::IsEnabled(kActorOriginGating) &&
+         kActorOriginGatingImplicitFeatureParam.Get();
+}
 
 BASE_FEATURE(kModelBasedPageClassification, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -721,6 +778,13 @@ bool IsAppSwitcherAISummarizationEnabled() {
   return base::FeatureList::IsEnabled(kAppSwitcherAISummarization);
 }
 
+bool IsAppSwitcherAISummarizationTestingExternalURLEnabled() {
+  if (!IsAppSwitcherAISummarizationEnabled()) {
+    return false;
+  }
+  return experimental_flags::
+      IsAppSwitcherAISummarizationTestingExternalURLEnabled();
+}
 
 #pragma mark - Debugging Features
 
@@ -752,6 +816,9 @@ BWGPromoConsentVariations BWGPromoConsentVariationsParam() {
   if (param == 5) {
     return BWGPromoConsentVariations::kSkipNewUserDelay;
   }
+  if (param == 6) {
+    return BWGPromoConsentVariations::kForceLiveFRE;
+  }
   return BWGPromoConsentVariations::kDisabled;
 }
 
@@ -761,6 +828,11 @@ bool ShouldForceBWGPromo() {
   }
   return BWGPromoConsentVariationsParam() ==
          BWGPromoConsentVariations::kForceFRE;
+}
+
+bool ShouldForceGeminiLiveFRE() {
+  return BWGPromoConsentVariationsParam() ==
+         BWGPromoConsentVariations::kForceLiveFRE;
 }
 
 bool ShouldSkipBWGPromoNewUserDelay() {
@@ -786,6 +858,12 @@ BASE_FEATURE(kGeminiQuizzes, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiQuizzesEnabled() {
   return base::FeatureList::IsEnabled(kGeminiQuizzes);
+}
+
+bool ShouldOpenGeminiQuizzesInNewTab() {
+  return IsGeminiQuizzesEnabled() &&
+         base::GetFieldTrialParamByFeatureAsBool(
+             kGeminiQuizzes, kGeminiQuizzesOpenInNewTabParam, false);
 }
 
 BASE_FEATURE(kGeminiFRERefactor, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -910,4 +988,10 @@ BASE_FEATURE(kGeminiInsightsChipAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiInsightsChipAblationEnabled() {
   return base::FeatureList::IsEnabled(kGeminiInsightsChipAblation);
+}
+
+BASE_FEATURE(kGeminiHostExperimentIDs, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiHostExperimentIDsEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiHostExperimentIDs);
 }

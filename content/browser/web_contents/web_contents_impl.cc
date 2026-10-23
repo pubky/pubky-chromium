@@ -38,6 +38,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
+#include "base/numerics/clamped_math.h"
 #include "base/observer_list.h"
 #include "base/process/process.h"
 #include "base/strings/strcat.h"
@@ -1338,6 +1339,74 @@ Visibility FrameVisibilityToVisibility(
     case blink::mojom::FrameVisibility::kNotRendered:
       return Visibility::HIDDEN;
   }
+}
+
+// Result of checking popup and anchor bounds against the permission exclusion
+// area.
+enum class PopupExclusionAreaIntersection {
+  // Neither popup bounds, anchor bounds, nor effective placements intersect.
+  kIntersectsNone,
+  // The popup's initial rect, anchor rect, or unflipped effective placement
+  // intersects the permission exclusion area.
+  kIntersectsDirect,
+  // Only the vertically flipped effective placement intersects the permission
+  // exclusion area.
+  kIntersectsFlippedAnchor,
+};
+
+PopupExclusionAreaIntersection CheckPopupPermissionExclusionAreaIntersection(
+    const gfx::Rect& exclusion_area_bounds,
+    const gfx::Rect& popup_rect,
+    const gfx::Rect& anchor_rect) {
+  gfx::Rect normalized_rect = popup_rect;
+  if (normalized_rect.IsEmpty()) {
+    normalized_rect.set_size({std::max(1, normalized_rect.width()),
+                              std::max(1, normalized_rect.height())});
+  }
+
+  if (exclusion_area_bounds.Intersects(normalized_rect)) {
+    return PopupExclusionAreaIntersection::kIntersectsDirect;
+  }
+
+  // `anchor_rect`-based popup positioning (and vertical flipping via
+  // `kOwnedWindowAnchor`) is only used by
+  // `RenderWidgetHostViewAura::InitAsPopup`. Non-Aura platforms (e.g. macOS)
+  // ignore `anchor_rect` and position popups solely using `popup_rect`.
+#if defined(USE_AURA)
+  gfx::Rect normalized_anchor = anchor_rect;
+  if (normalized_anchor.IsEmpty()) {
+    normalized_anchor.set_size({std::max(1, normalized_anchor.width()),
+                                std::max(1, normalized_anchor.height())});
+  }
+
+  int popup_width = std::max(1, popup_rect.width());
+  int popup_height = std::max(1, popup_rect.height());
+
+  // Popups positioned using an anchor rect (such as on Wayland via
+  // xdg_positioner) use anchor_position=kBottomLeft, gravity=kBottomRight,
+  // and vertical flip constraint adjustment. Validate both unflipped and
+  // flipped placement bounds as well as anchor bounds against the exclusion
+  // area.
+  gfx::Rect anchor_effective_rect(
+      normalized_anchor.x(),
+      base::ClampAdd(normalized_anchor.y(), normalized_anchor.height()),
+      popup_width, popup_height);
+  gfx::Rect anchor_flipped_effective_rect(
+      normalized_anchor.x(),
+      base::ClampSub(normalized_anchor.y(), popup_height), popup_width,
+      popup_height);
+
+  if (exclusion_area_bounds.Intersects(normalized_anchor) ||
+      exclusion_area_bounds.Intersects(anchor_effective_rect)) {
+    return PopupExclusionAreaIntersection::kIntersectsDirect;
+  }
+
+  if (exclusion_area_bounds.Intersects(anchor_flipped_effective_rect)) {
+    return PopupExclusionAreaIntersection::kIntersectsFlippedAnchor;
+  }
+#endif  // defined(USE_AURA)
+
+  return PopupExclusionAreaIntersection::kIntersectsNone;
 }
 
 }  // namespace
@@ -6196,10 +6265,18 @@ void WebContentsImpl::ShowCreatedWidget(ChildProcessId process_id,
   auto permission_exclusion_area_bounds =
       PermissionControllerImpl::FromBrowserContext(GetBrowserContext())
           ->GetExclusionAreaBoundsInScreen(outermost_web_contents);
-  if (permission_exclusion_area_bounds &&
-      permission_exclusion_area_bounds->Intersects(transformed_rect)) {
-    render_widget_host_impl->ShutdownAndDestroyWidget(true);
-    return;
+  if (permission_exclusion_area_bounds) {
+    switch (CheckPopupPermissionExclusionAreaIntersection(
+        *permission_exclusion_area_bounds, transformed_rect,
+        transformed_anchor_rect)) {
+      case PopupExclusionAreaIntersection::kIntersectsDirect:
+        render_widget_host_impl->ShutdownAndDestroyWidget(true);
+        return;
+      case PopupExclusionAreaIntersection::kIntersectsFlippedAnchor:
+        return;
+      case PopupExclusionAreaIntersection::kIntersectsNone:
+        break;
+    }
   }
 
   widget_host_view->InitAsPopup(view, transformed_rect,
@@ -6953,19 +7030,31 @@ WebContents* WebContentsImpl::OpenURL(
     }
   }
 
-  WebContents* new_contents = delegate_->OpenURLFromTab(
-      this, params, std::move(navigation_handle_callback));
-
   if (source_render_frame_host && params.source_site_instance) {
     CHECK_EQ(source_render_frame_host->GetSiteInstance(),
              params.source_site_instance.get());
   }
 
-  if (new_contents && source_render_frame_host && new_contents != this) {
+  // `OpenURLFromTab()` can synchronously delete `source_render_frame_host`.
+  // For example, if the source frame's renderer process has crashed (e.g. a
+  // ServiceWorker calls WindowClient.navigate() on a crashed frame), starting
+  // the navigation performs an early RenderFrameHost swap, which deletes the
+  // crashed source RenderFrameHost. So, don't use `source_render_frame_host`
+  // after this point. In that case the disposition is CURRENT_TAB and
+  // `new_contents` is `this`, so the observer notification below won't run,
+  // but use a WeakPtr to avoid relying on that.
+  base::WeakPtr<RenderFrameHostImpl> weak_source_rfh =
+      source_render_frame_host ? source_render_frame_host->GetWeakPtr()
+                               : nullptr;
+  source_render_frame_host = nullptr;
+  WebContents* new_contents = delegate_->OpenURLFromTab(
+      this, params, std::move(navigation_handle_callback));
+
+  if (new_contents && weak_source_rfh && new_contents != this) {
     observers_.NotifyObservers(
         &WebContentsObserver::DidOpenRequestedURL, new_contents,
-        source_render_frame_host, params.url, params.referrer,
-        params.disposition, params.transition, params.started_from_context_menu,
+        weak_source_rfh.get(), params.url, params.referrer, params.disposition,
+        params.transition, params.started_from_context_menu,
         params.is_renderer_initiated);
   }
 
@@ -7778,18 +7867,19 @@ int WebContentsImpl::DownloadImageInFrame(
   return download_id;
 }
 
-void WebContentsImpl::Find(int request_id,
-                           const std::u16string& search_text,
-                           blink::mojom::FindOptionsPtr options,
-                           bool skip_delay) {
+void WebContentsImpl::Find(
+    const std::u16string& search_text,
+    blink::mojom::FindOptionsPtr options,
+    bool skip_delay,
+    base::FunctionRef<void(int request_id)> on_request_id) {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::Find");
   // Cowardly refuse to search for no text.
   if (search_text.empty()) {
     NOTREACHED();
   }
 
-  GetOrCreateFindRequestManager()->Find(request_id, search_text,
-                                        std::move(options), skip_delay);
+  GetOrCreateFindRequestManager()->Find(search_text, std::move(options),
+                                        skip_delay, on_request_id);
 }
 
 void WebContentsImpl::StopFinding(StopFindAction action) {
@@ -9585,23 +9675,22 @@ void WebContentsImpl::ShowContextMenu(
 
 namespace {
 // Normalizes the line endings: \r\n -> \n, lone \r -> \n.
-std::u16string NormalizeLineBreaks(const std::u16string& source) {
-  static const base::NoDestructor<std::u16string> kReturnNewline(u"\r\n");
-  static const base::NoDestructor<std::u16string> kReturn(u"\r");
-  static const base::NoDestructor<std::u16string> kNewline(u"\n");
+std::u16string NormalizeLineBreaks(std::u16string_view source) {
+  static constexpr std::u16string_view kReturnNewline = u"\r\n";
+  static constexpr std::u16string_view kReturn = u"\r";
+  static constexpr std::u16string_view kNewline = u"\n";
 
   std::vector<std::u16string_view> pieces;
 
-  for (const auto& rn_line : base::SplitStringPieceUsingSubstr(
-           source, *kReturnNewline, base::KEEP_WHITESPACE,
+  for (std::u16string_view rn_line : base::SplitStringPieceUsingSubstr(
+           source, kReturnNewline, base::KEEP_WHITESPACE,
            base::SPLIT_WANT_ALL)) {
     auto r_lines = base::SplitStringPieceUsingSubstr(
-        rn_line, *kReturn, base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-    std::move(std::begin(r_lines), std::end(r_lines),
-              std::back_inserter(pieces));
+        rn_line, kReturn, base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+    pieces.insert(pieces.end(), r_lines.begin(), r_lines.end());
   }
 
-  return base::JoinString(pieces, *kNewline);
+  return base::JoinString(pieces, kNewline);
 }
 }  // namespace
 
@@ -11935,8 +12024,16 @@ void WebContentsImpl::NotifyFindReply(int request_id,
                                       int active_match_ordinal,
                                       bool final_update) {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::NotifyFindReply");
-  if (delegate_ && !IsBeingDestroyed() &&
-      !GetPrimaryMainFrame()->GetProcess()->FastShutdownStarted()) {
+  if (IsBeingDestroyed() ||
+      GetPrimaryMainFrame()->GetProcess()->FastShutdownStarted()) {
+    return;
+  }
+
+  observers_.NotifyObservers(&WebContentsObserver::DidReceiveFindReply,
+                             request_id, number_of_matches,
+                             active_match_ordinal, final_update);
+
+  if (delegate_) {
     delegate_->FindReply(this, request_id, number_of_matches, selection_rect,
                          active_match_ordinal, final_update);
   }
@@ -12302,6 +12399,9 @@ bool WebContentsImpl::SetDeviceEmulationSize(const gfx::Size& new_size) {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::SetDeviceEmulationSize");
   device_emulation_size_ = new_size;
   RenderWidgetHostView* rwhv = GetPrimaryMainFrame()->GetView();
+  if (!rwhv) {
+    return false;
+  }
 
   const gfx::Size current_size = rwhv->GetViewBounds().size();
   if (view_size_before_emulation_.IsEmpty()) {
@@ -12318,6 +12418,9 @@ bool WebContentsImpl::SetDeviceEmulationSize(const gfx::Size& new_size) {
 void WebContentsImpl::ClearDeviceEmulationSize() {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::ClearDeviceEmulationSize");
   RenderWidgetHostView* rwhv = GetPrimaryMainFrame()->GetView();
+  if (!rwhv) {
+    return;
+  }
   // WebContentsView could get resized during emulation, which also resizes
   // RWHV. If it happens, assume user would like to keep using the size after
   // emulation.
@@ -12716,10 +12819,12 @@ WebContentsImpl::ParseDownloadHeaders(const std::string& headers) {
   download::DownloadUrlParameters::RequestHeadersType request_headers;
   for (std::string_view key_value : base::SplitStringPiece(
            headers, "\r\n", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-    std::vector<std::string> pair = base::SplitString(
-        key_value, ":", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-    if (2ul == pair.size()) {
-      request_headers.push_back(make_pair(pair[0], pair[1]));
+    std::optional<std::pair<std::string_view, std::string_view>> pair =
+        base::SplitStringOnce(key_value, ':');
+    if (pair.has_value() && !pair->second.contains(':')) {
+      request_headers.emplace_back(
+          base::TrimWhitespaceASCII(pair->first, base::TRIM_ALL),
+          base::TrimWhitespaceASCII(pair->second, base::TRIM_ALL));
     }
   }
   return request_headers;
@@ -13151,7 +13256,8 @@ std::unique_ptr<PrefetchHandle> WebContentsImpl::StartPrefetch(
     base::WeakPtr<PreloadingAttempt> attempt,
     PreloadingHoldbackStatus holdback_status_override,
     std::optional<base::TimeDelta> ttl,
-    bool should_ignore_saver_modes) {
+    bool should_ignore_saver_modes,
+    bool is_ahead_of_actual_navigation) {
   PrefetchService* prefetch_service =
       BrowserContextImpl::From(GetBrowserContext())->GetPrefetchService();
   if (!prefetch_service) {
@@ -13164,7 +13270,8 @@ std::unique_ptr<PrefetchHandle> WebContentsImpl::StartPrefetch(
       *this, prefetch_url, prefetch_type, embedder_histogram_suffix, referrer,
       referring_origin, std::move(no_vary_search_hint), std::move(priority),
       std::move(preload_pipeline_info), std::move(attempt),
-      holdback_status_override, std::move(ttl), should_ignore_saver_modes);
+      holdback_status_override, std::move(ttl), should_ignore_saver_modes,
+      is_ahead_of_actual_navigation);
 
   return prefetch_service->AddPrefetchRequestWithHandle(std::move(request));
 }

@@ -97,6 +97,7 @@
 #import "ios/chrome/test/app/tab_test_util.h"
 #import "ios/chrome/test/app/window_test_util.h"
 #import "ios/chrome/test/earl_grey/accessibility_util.h"
+#import "ios/chrome/test/earl_grey/duo_simulator_util.h"
 #import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ios/public/provider/chrome/browser/primes/primes_api.h"
@@ -793,6 +794,26 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   return GetInterfaceOrientation();
 }
 
++ (BOOL)isDuoSimulator {
+  return IsDuoSimulator();
+}
+
++ (BOOL)dispatchSimulatedDuoHingeAngle:(double)angleInDegrees {
+  return DispatchSimulatedDuoHingeAngle(angleInDegrees);
+}
+
++ (BOOL)isSimulatedDuoHingePostureSettled:(double)angleInDegrees {
+  return IsSimulatedDuoHingePostureSettled(angleInDegrees);
+}
+
++ (BOOL)dispatchSimulatedDuoOrientation:(UIDeviceOrientation)orientation {
+  return DispatchSimulatedDuoOrientation(orientation);
+}
+
++ (BOOL)isSimulatedDuoOrientationSettled:(UIDeviceOrientation)orientation {
+  return IsSimulatedDuoOrientationSettled(orientation);
+}
+
 #pragma mark - WebState Utilities (EG2)
 
 + (NSError*)tapWebStateElementInIFrameWithID:(NSString*)elementID {
@@ -948,6 +969,14 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   id<SceneCommands> handler =
       HandlerForProtocol(browser->GetCommandDispatcher(), SceneCommands);
   [handler showSettingsFromViewController:nil];
+}
+
++ (void)showTabSwitcherInWindowWithNumber:(int)windowNumber {
+  SceneState* scene = [self sceneStateWithNumber:windowNumber];
+  Browser* browser = scene.browserProviderInterface.mainBrowserProvider.browser;
+  id<SceneCommands> handler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), SceneCommands);
+  [handler displayTabGridInMode:TabGridOpeningMode::kDefault];
 }
 
 #pragma mark - URL Utilities (EG2)
@@ -1459,6 +1488,9 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   return IsOverflowMenuNTPRefactorEnabled();
 }
 
++ (BOOL)isPinnedTabsEnabled {
+  return IsPinnedTabsEnabled();
+}
 
 #pragma mark - ContentSettings
 

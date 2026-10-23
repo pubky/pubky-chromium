@@ -832,6 +832,9 @@ std::string GetXYZParamsString(FPDF_DEST dest, PDFiumPage* page) {
     return xyz_params;
   }
 
+  // WARNING: Do not use `dest` below this point, as `page` access can
+  // invalidate it.
+
   // Generate a string of the parameters
   if (has_x_coord) {
     // Handle out-of-range PDF coordinates and convert PDF coordinates to screen
@@ -983,7 +986,7 @@ void InitializeSDK(bool enable_v8,
                    bool use_skia,
                    FontMappingMode font_mapping_mode) {
   FPDF_LIBRARY_CONFIG config;
-  config.version = 6;
+  config.version = 7;
   config.m_pUserFontPaths = nullptr;
   config.m_pIsolate = nullptr;
   config.m_pPlatform = nullptr;
@@ -993,11 +996,15 @@ void InitializeSDK(bool enable_v8,
   config.m_FontLibraryType = FPDF_FONTBACKENDTYPE_FREETYPE;
   config.m_BrotliEnabled =
       base::FeatureList::IsEnabled(features::kPdfBrotliDecode);
+  config.m_IsolatePerDocument =
+      base::FeatureList::IsEnabled(features::kPdfXfaSupport);
 
 #if defined(PDF_ENABLE_V8)
   if (enable_v8) {
     SetUpV8();
-    config.m_pIsolate = g_isolate_holder->isolate();
+    if (!config.m_IsolatePerDocument) {
+      config.m_pIsolate = g_isolate_holder->isolate();
+    }
     // NOTE: static_cast<> prior to assigning to (void*) is safer since it
     // will manipulate the pointer value should gin::V8Platform someday have
     // multiple base classes.
@@ -3371,21 +3378,23 @@ std::optional<PDFiumEngine::NamedDestination> PDFiumEngine::GetNamedDestination(
   }
 
   NamedDestination result;
-  result.page = page;
   unsigned long view_int =
       FPDFDest_GetView(dest, &result.num_params, result.params.data());
-
-  // FPDFDest_GetView() gets the PDF coordinates directly from the PDF document.
-  // The PDF coordinates need to be transformed into screen coordinates before
-  // getting sent to the viewport.
+  result.page = page;
+  result.view = ConvertViewIntToViewString(view_int);
   PDFiumPage* page_ptr = pages_[page].get();
-  ParamsTransformPageToScreen(view_int, page_ptr, result.params);
 
   if (view_int == PDFDEST_VIEW_XYZ) {
     result.xyz_params = GetXYZParamsString(dest, page_ptr);
   }
 
-  result.view = ConvertViewIntToViewString(view_int);
+  // WARNING: Do not use `dest` below this point, as GetXYZParamsString() may
+  // have invalidated it. Or ParamsTransformPageToScreen() may invalidate it.
+
+  // FPDFDest_GetView() gets the PDF coordinates directly from the PDF document.
+  // The PDF coordinates need to be transformed into screen coordinates before
+  // getting sent to the viewport.
+  ParamsTransformPageToScreen(view_int, page_ptr, result.params);
   return result;
 }
 

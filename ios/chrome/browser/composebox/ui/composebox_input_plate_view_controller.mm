@@ -991,7 +991,6 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 - (UICollectionViewDiffableDataSource<NSString*, ComposeboxInputItem*>*)
     createDataSource {
-  __weak ComposeboxTheme* theme = _theme;
   __weak __typeof(self) weakSelf = self;
   return [[UICollectionViewDiffableDataSource alloc]
       initWithCollectionView:_carouselView
@@ -1003,13 +1002,17 @@ UIImage* SendButtonImage(BOOL highlighted,
                           dequeueReusableCellWithReuseIdentifier:
                               kItemCellReuseIdentifier
                                                     forIndexPath:indexPath];
-                  [cell configureWithItem:item theme:theme];
+                  [cell configureWithItem:item theme:[weakSelf currentTheme]];
                   cell.delegate = weakSelf;
                   return cell;
                 }];
 }
 
 #pragma mark - Private helpers
+
+- (ComposeboxTheme*)currentTheme {
+  return _theme;
+}
 
 /// Handles keyboard appearance notifications to adjust layout.
 - (void)keyboardWillShow:(NSNotification*)notification {
@@ -1815,6 +1818,20 @@ UIImage* SendButtonImage(BOOL highlighted,
                                 ComposeboxModelOption::kFlash];
                 }];
 
+    UIAction* proLatestModelOption = [self
+        actionWithTitle:[_state.uiConfig
+                            menuLabelForModel:ComposeboxModelOption::kProLatest]
+                  image:[_state.uiConfig
+                            iconForModel:ComposeboxModelOption::kProLatest]
+                 hidden:[_state isModelHidden:ComposeboxModelOption::kProLatest]
+               disabled:[_state
+                            isModelDisabled:ComposeboxModelOption::kProLatest]
+               selected:_state.activeModel == ComposeboxModelOption::kProLatest
+                handler:^{
+                  [weakSelf handleModelChangeFromToolsMenuWithOption:
+                                ComposeboxModelOption::kProLatest];
+                }];
+
     NSString* modelPickerTitle = [_state.uiConfig modelSectionHeader];
     UIMenu* modelPickerMenu =
         [UIMenu menuWithTitle:modelPickerTitle
@@ -1823,7 +1840,8 @@ UIImage* SendButtonImage(BOOL highlighted,
                       options:UIMenuOptionsDisplayInline
                      children:@[
                        regularModelOption, autoModelOption, thinkingModelOption,
-                       thinkingModelNoGenUIOption, flashModelOption
+                       thinkingModelNoGenUIOption, flashModelOption,
+                       proLatestModelOption
                      ]];
 
     [sections addObject:modelPickerMenu];

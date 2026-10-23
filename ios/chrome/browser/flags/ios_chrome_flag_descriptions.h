@@ -61,6 +61,12 @@ inline constexpr char kAimCobrowseName[] = "AimCobrowse";
 inline constexpr char kAimCobrowseDescription[] =
     "Enables the AimCobrowse feature.";
 
+inline constexpr char kAimCobrowseWebSelectionSearchName[] =
+    "AIM Cobrowse Web Selection Search";
+inline constexpr char kAimCobrowseWebSelectionSearchDescription[] =
+    "When enabled, 'Search with Google' in the web selection menu opens "
+    "Cobrowse with the selected text.";
+
 inline constexpr char kAimHistoryThreadsManagementName[] =
     "AimHistoryThreadsManagement";
 inline constexpr char kAimHistoryThreadsManagementDescription[] =
@@ -81,6 +87,23 @@ inline constexpr char kAppBackgroundRefreshName[] =
 inline constexpr char kAppBackgroundRefreshDescription[] =
     "Schedules app background refresh after some minimum period of time has "
     "passed after the last refresh.";
+
+inline constexpr char kAppBarAssistantCustomizationName[] =
+    "AppBar Assistant Customization";
+inline constexpr char kAppBarAssistantCustomizationDescription[] =
+    "When enabled, long pressing the AppBar assistant button shows a menu to "
+    "choose which entry point the button shows.";
+
+inline constexpr char kAppBarDisableLongPressName[] =
+    "Disable App Bar long press";
+inline constexpr char kAppBarDisableLongPressDescription[] =
+    "When enabled, disables long-press context menus on the App Bar buttons.";
+
+inline constexpr char kAppBarStaticSymbolWhenHiddenName[] =
+    "App Bar static symbol when hidden";
+inline constexpr char kAppBarStaticSymbolWhenHiddenDescription[] =
+    "When enabled, the App Bar tab grid button swaps its symbol without an "
+    "animated content transition while the App Bar is not visible.";
 
 inline constexpr char kAppSwitcherAISummarizationName[] =
     "App Switcher AI summarization";
@@ -388,6 +411,13 @@ inline constexpr char kClientSideDetectionIosName[] =
     "Client Side Detection on iOS";
 inline constexpr char kClientSideDetectionIosDescription[] =
     "Enables Client Side Detection (CSD) for phishing on iOS.";
+
+inline constexpr char kClientSideDetectionServerModelForScamDetectionIosName[] =
+    "Client Side Detection Server Model for Scam Detection on iOS";
+inline constexpr char
+    kClientSideDetectionServerModelForScamDetectionIosDescription[] =
+        "Enables server model for scam detection on iOS. Requires "
+        "#client-side-detection-ios to be enabled.";
 
 inline constexpr char kCollaborationMessagingName[] = "Collaboration Messaging";
 inline constexpr char kCollaborationMessagingDescription[] =
@@ -707,6 +737,12 @@ inline constexpr char kEnableBulkDataEntryConnectorIOSDescription[] =
     "When enabled, the enterprise pasted content DLP feature is available on "
     "iOS.";
 
+inline constexpr char kEnableCobrowseOnAimSrpTapName[] =
+    "Enable Cobrowse on AIM SRP Tap";
+inline constexpr char kEnableCobrowseOnAimSrpTapDescription[] =
+    "Enables Cobrowse to automatically open when a user taps a link on an AIM "
+    "SRP page.";
+
 inline constexpr char kEnableCompromisedPasswordsMutingName[] =
     "Enable the muting of compromised passwords in the Password Manager";
 inline constexpr char kEnableCompromisedPasswordsMutingDescription[] =
@@ -874,6 +910,12 @@ inline constexpr char kGeminiContextualSuggestionsCuesName[] =
 inline constexpr char kGeminiContextualSuggestionsCuesDescription[] =
     "Enables Gemini contextual suggestions cues framework.";
 
+inline constexpr char kGeminiContextualSuggestionsCuesUiModeName[] =
+    "Gemini Contextual Suggestions Cues UI Mode";
+inline constexpr char kGeminiContextualSuggestionsCuesUiModeDescription[] =
+    "Selects the UI presentation mode for Gemini contextual suggestions cues "
+    "(Infobar Then Omnibox Chip, Infobar Only, or Omnibox Chip Only).";
+
 inline constexpr char kGeminiCoordinatorTeardownFixName[] =
     "Gemini Coordinator Teardown Fix";
 inline constexpr char kGeminiCoordinatorTeardownFixDescription[] =
@@ -893,6 +935,12 @@ inline constexpr char kGeminiFREExperimentDescription[] =
 inline constexpr char kGeminiFRERefactorName[] = "Gemini FRE Refactor";
 inline constexpr char kGeminiFRERefactorDescription[] =
     "Enables the refactored Gemini First Run Experience UI.";
+
+inline constexpr char kGeminiHostExperimentIDsName[] =
+    "Gemini Host Experiment IDs";
+inline constexpr char kGeminiHostExperimentIDsDescription[] =
+    "Passes active Chrome iOS Finch GWS variation IDs to the embedded Gemini "
+    "iOS SDK.";
 
 inline constexpr char kGeminiInsightsChipAblationName[] =
     "Gemini Insights Chip Ablation";
@@ -1162,6 +1210,10 @@ inline constexpr char kIdentityConfirmationSnackbarName[] =
 inline constexpr char kIdentityConfirmationSnackbarDescription[] =
     "When enabled, the identity confirmation snackbar will show on startup.";
 
+inline constexpr char kImportExportFlagsName[] = "Import and export flags";
+inline constexpr char kImportExportFlagsDescription[] =
+    "Enables importing and exporting flags from chrome://flags.";
+
 inline constexpr char kInProductHelpDemoModeName[] =
     "In-Product Help Demo Mode";
 inline constexpr char kInProductHelpDemoModeDescription[] =
@@ -1280,10 +1332,20 @@ inline constexpr char kLensTripleCameraEnabledName[] =
 inline constexpr char kLensTripleCameraEnabledDescription[] =
     "When enabled, Lens LVF uses virtual triple camera.";
 
+inline constexpr char kLightAppBarName[] = "Light App Bar";
+inline constexpr char kLightAppBarDescription[] =
+    "When enabled, the App Bar adapts its appearance to follow the user's "
+    "preferred light or dark interface style.";
+
 inline constexpr char kLocationBarBadgeMigrationName[] =
     "LocationBarBadgeMigration";
 inline constexpr char kLocationBarBadgeMigrationDescription[] =
     "Enables the LocationBarBadgeMigration feature.";
+
+inline constexpr char kLocationBarPerformanceImprovementsName[] =
+    "LocationBarPerformanceImprovements";
+inline constexpr char kLocationBarPerformanceImprovementsDescription[] =
+    "Enables performance improvements for the location bar.";
 
 inline constexpr char kLockBottomToolbarName[] = "Lock bottom toolbar";
 inline constexpr char kLockBottomToolbarDescription[] =
@@ -1368,6 +1430,12 @@ inline constexpr char kNewGeolocationPermissionDelegateDescription[] =
     "Enables the new geolocation permission delegate feature to help users "
     "manage location permission updates when sharing their location with the "
     "browser.";
+
+inline constexpr char kNewTabPageEphemeralThemeName[] =
+    "New Tab Page Ephemeral Theme";
+inline constexpr char kNewTabPageEphemeralThemeDescription[] =
+    "Enables custom ephemeral color palettes on the New Tab Page configured "
+    "via Finch parameters.";
 
 inline constexpr char kNewTabPageFieldTrialName[] =
     "New tab page features that target new users";
@@ -1651,12 +1719,6 @@ inline constexpr char kPrepopulatedEnginesShadowVariantsDescription[] =
     "Enables shadow variants for prepopulated engines resolution, allowing "
     "alternative engines to be resolved in specific regions.";
 
-inline constexpr char kPreventCobrowseOnAimSrpTapName[] =
-    "Prevent Cobrowse on AIM SRP Tap";
-inline constexpr char kPreventCobrowseOnAimSrpTapDescription[] =
-    "Prevents Cobrowse from automatically opening when a user taps a link on "
-    "an AIM SRP page.";
-
 inline constexpr char kPriceTrackingPromoName[] =
     "Enables price tracking notification promo card";
 inline constexpr char kPriceTrackingPromoDescription[] =
@@ -1673,17 +1735,6 @@ inline constexpr char kProactiveSuggestionsFrameworkPopupBlockerName[] =
     "Popup Blocker";
 inline constexpr char kProactiveSuggestionsFrameworkPopupBlockerDescription[] =
     "Enables the popup blocker feature row in the Page Action Menu.";
-
-inline constexpr char kReaderModeContentSettingsForLinksName[] =
-    "Enables Content Settings options for Reading Mode";
-inline constexpr char kReaderModeContentSettingsForLinksDescription[] =
-    "Enables Content Settings options for disabling/enabling links in Reading "
-    "Mode.";
-
-inline constexpr char kReaderModeIgnoreBadgeThresholdName[] =
-    "Reader Mode ignore badge threshold";
-inline constexpr char kReaderModeIgnoreBadgeThresholdDescription[] =
-    "When enabled, the badge threshold is ignored for Reader Mode.";
 
 inline constexpr char kReaderModeOmniboxEntrypointInUSName[] =
     "Reader Mode Omnibox Entrypoint In US";

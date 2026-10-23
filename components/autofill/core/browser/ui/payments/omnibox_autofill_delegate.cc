@@ -61,6 +61,7 @@ bool IsValidOmniboxAutofillSuggestion(SuggestionType type) {
     case SuggestionType::kAtMemoryOpenGemini:
     case SuggestionType::kAtMemorySearchAffordance:
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
@@ -369,8 +370,7 @@ void OmniboxAutofillDelegate::OnSuggestionsShown(
   // Treat clicking the "Autofill payment" omnibox chip (which forcefully shows
   // the suggestions bubble) the same as a form interaction.
   if (autofill_metrics::FormEventLoggerBase* logger =
-          manager->GetEventFormLogger(*trigger_field);
-      logger && ShouldBeParsed(*form, /*log_manager=*/nullptr)) {
+          manager->GetEventFormLogger(*trigger_field)) {
     if (logger == &manager->GetCreditCardFormEventLogger()) {
       manager->GetCreditCardFormEventLogger().set_signin_state_for_metrics(
           client_->GetPersonalDataManager()

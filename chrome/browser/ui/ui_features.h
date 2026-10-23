@@ -37,6 +37,8 @@ BASE_DECLARE_FEATURE(kImportExportFlags);
 
 BASE_DECLARE_FEATURE(kInfoBarInlineLinks);
 
+BASE_DECLARE_FEATURE(kKeyboardLockHeldEscExitsTabFullscreen);
+
 // All feature flags associated with Glow Up, apart from those in
 // ui_base_features.h
 BASE_DECLARE_FEATURE(kTabStripDeclutter);
@@ -349,6 +351,10 @@ bool IsWebUIAvatarButtonEnabled();
 BASE_DECLARE_FEATURE(kWebUIMediaButton);
 bool IsWebUIMediaButtonEnabled();
 
+// Controls whether the WebUI version of the Glic Button is used.
+BASE_DECLARE_FEATURE(kWebUIGlicButton);
+bool IsWebUIGlicButtonEnabled();
+
 bool IsWebUIPerformanceInterventionButtonEnabled();
 
 bool IsWebUIAppMenuButtonEnabled();
@@ -376,7 +382,6 @@ BASE_DECLARE_FEATURE(kAiOverlayDialog);
 BASE_DECLARE_FEATURE(kAiOverlayDialogDev);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogApiKey);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogMockJsonPath);
-BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUsesActor);
 BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUseMes);
 BASE_DECLARE_FEATURE(kAiOverlayDisableNavigationContext);
 

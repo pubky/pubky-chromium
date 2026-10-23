@@ -12,6 +12,14 @@ namespace prefs {
 inline constexpr char kAddressBarSettingsNewBadgeShownCount[] =
     "ios.address_bar_settings_new_badge_shown_count";
 
+// Integer storing the `AppBarAssistantButtonPreferredState` chosen by the user
+// in the AppBar assistant button menu. The assistant button only shows this
+// state when its entry point is available. `kDefault`, or any value outside of
+// the enum range, means that the user didn't make any choice. Per-profile and
+// not synced.
+inline constexpr char kAppBarAssistantButtonPreferredState[] =
+    "ios.app_bar.assistant_button_preferred_state";
+
 // The application locale.
 inline constexpr char kApplicationLocale[] = "intl.app_locale";
 
@@ -456,6 +464,12 @@ inline constexpr char kIosNtpThemeMigrationComplete[] =
 // background, updated by both local changes and remote sync updates.
 inline constexpr char kIosNtpThemeSpecifics[] = "ios.ntp.theme_specifics";
 
+// Dictionary preference storing the downloaded ephemeral theme metadata
+// (animation URLs, local file paths, color mapping dictionaries, Google logo
+// URLs, and seed color).
+inline constexpr char kIosNtpEphemeralThemeData[] =
+    "ios.ntp.ephemeral_theme_data";
+
 // Preference that hold a boolean indicating if the user has already dismissed
 // the sign-in promo in the reading list.
 inline constexpr char kIosReadingListPromoAlreadySeen[] =
@@ -830,6 +844,12 @@ inline constexpr char kIOSGeminiCameraSetting[] = "ios.gemini.camera.setting";
 // A boolean specifying whether the Gemini suggestions setting is enabled.
 inline constexpr char kIOSGeminiSuggestionsSetting[] =
     "ios.gemini.suggestions.setting";
+
+// A dictionary storing per-vertical UI state (consecutive Message ignores,
+// whether a Message was accepted, and whether the vertical permanently switched
+// from Message UI to Omnibox Chip UI) for contextual cueing.
+inline constexpr char kIOSContextualCueingVerticalUiState[] =
+    "ios.contextual_cueing.vertical_ui_state";
 
 // A boolean specifying whether the Gemini Live closed captioning setting is
 // enabled.

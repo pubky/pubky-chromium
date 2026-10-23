@@ -124,6 +124,7 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemoryShortcutSettingsPromo:
     case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kIdentityCredential:
@@ -264,9 +265,26 @@ PasswordAutofillManager::GetWebauthnInlineQrCodeSuggestion() const {
   return suggestion_generator_.GetWebauthnInlineQrCodeSuggestion();
 }
 
+void PasswordAutofillManager::OnWebauthnInlineQrCodeSuggestionShown() {
+  if (WebAuthnCredentialsDelegate* credentials_delegate =
+          password_client_->GetWebAuthnCredentialsDelegateForDriver(
+              password_manager_driver_)) {
+    credentials_delegate->OnPasskeyQrCodeSuggestionShown();
+  }
+}
+
 void PasswordAutofillManager::OnSuggestionsShown(
     base::span<const Suggestion> suggestions,
-    const SuggestionUiMetadata& metadata) {}
+    const SuggestionUiMetadata& metadata) {
+  const bool shows_passkey_qr_code =
+      std::ranges::any_of(suggestions, [](const Suggestion& suggestion) {
+        return suggestion.type ==
+               autofill::SuggestionType::kWebauthnPasskeyQrCode;
+      });
+  if (shows_passkey_qr_code) {
+    OnWebauthnInlineQrCodeSuggestionShown();
+  }
+}
 
 void PasswordAutofillManager::OnSuggestionsHidden(
     autofill::SuggestionHidingReason reason) {
@@ -717,7 +735,15 @@ bool PasswordAutofillManager::MaybeShowPasswordSuggestionsWithGeneration(
       /*is_for_webauthn_request=*/false);
 }
 
-void PasswordAutofillManager::DidNavigateMainFrame() {
+void PasswordAutofillManager::DidNavigateFrame() {
+  // Hide the suggestions shown for the previous document, but only if they were
+  // shown by `this`, so that suggestions of other frames are not affected.
+  if (autofill_client_ && last_session_id_ &&
+      last_session_id_ ==
+          autofill_client_->GetSessionIdForCurrentAutofillSuggestions()) {
+    autofill_client_->HideSuggestions(
+        autofill::SuggestionHidingReason::kStaleData, GetMainFillingProduct());
+  }
   fill_data_.reset();
   CancelBiometricReauthIfOngoing();
   favicon_tracker_.TryCancelAll();
@@ -734,6 +760,10 @@ void PasswordAutofillManager::DidNavigateMainFrame() {
   cross_domain_confirmation_controller_.reset();
 #endif
   wait_for_passkeys_timer_.Stop();
+  // Drop the callbacks created for the previous document, e.g. a pending
+  // `OnAddPasswordFillData()` call or filling a credential after the user
+  // re-authenticated.
+  weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 base::WeakPtr<PasswordAutofillManager> PasswordAutofillManager::GetWeakPtr() {

@@ -315,6 +315,10 @@ BASE_FEATURE(kOmniboxWebUIPopupHideOnCreation, DISABLED);
 // WebUI omnibox is enabled. The WebUI container (and its WebContents) is
 // preserved across the swap, so this does not discard the pre-warmed renderer.
 BASE_FEATURE(kOmniboxFullWebUIDestroyWidgetOnHide, ENABLED);
+// Per-popup counterparts of `kOmniboxFullWebUIDestroyWidgetOnHide` that
+// take effect regardless of whether the full WebUI omnibox is enabled.
+BASE_FEATURE(kOmniboxAimDestroyWidgetOnHide, ENABLED);
+BASE_FEATURE(kOmniboxWebUIDestroyWidgetOnHide, DISABLED);
 
 // When enabled, the WebUI searchbox will bypass OmniboxController and
 // OmniboxEditModel.
@@ -414,6 +418,14 @@ BASE_FEATURE(kReportApplicationLanguageInSearchRequest, ENABLED);
 
 // When enabled, appends the invocation source parameter to search URLs.
 BASE_FEATURE(kOmniboxAppendInvocationSource, DISABLED);
+
+// When enabled, truncates the length of the value attached to the "oq" URL
+// parameter of search URLs.
+BASE_FEATURE(kTruncateSearchUrlOq, DISABLED);
+
+// When enabled, truncates the length of the value attached to the "q" URL
+// parameter of search URLs.
+BASE_FEATURE(kTruncateSearchUrlQ, DISABLED);
 
 // Enable asynchronous Omnibox/Suggest view inflation.
 BASE_FEATURE(kOmniboxAsyncViewInflation, ENABLED);

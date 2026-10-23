@@ -64,6 +64,7 @@ import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
 import org.chromium.chrome.browser.ChromeInactivityTracker.InactivityObserver;
+import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
 import org.chromium.chrome.browser.accessibility.PageZoomIphController;
 import org.chromium.chrome.browser.actor.ActorMetrics;
@@ -517,10 +518,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 SideUiCoordinator.SideUiSpecs sideUiSpecs,
                 SideUiCoordinator.UiUpdateRequest request) {
             if (mIsInHub) {
-                super.onSideUiSpecsChanged(
-                        new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()), request);
+                updateMarginsForSideUi(new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
             } else {
-                super.onSideUiSpecsChanged(sideUiSpecs, request);
+                updateMarginsForSideUi(sideUiSpecs);
             }
         }
 
@@ -528,10 +528,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         public void onStartedShowing(@LayoutType int layoutType) {
             if (layoutType == LayoutType.HUB) {
                 mIsInHub = true;
-                super.onSideUiSpecsChanged(
-                        new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()),
-                        new SideUiCoordinator.UiUpdateRequest(
-                                /* sideUiId= */ null, /* suppressAnimations= */ true));
+                updateMarginsForSideUi(new SideUiCoordinator.SideUiSpecs(Collections.emptyMap()));
             }
         }
 
@@ -541,10 +538,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 mIsInHub = false;
                 var sideUiCoordinator = mSideUiCoordinatorSupplier.get();
                 if (sideUiCoordinator != null) {
-                    super.onSideUiSpecsChanged(
-                            sideUiCoordinator.getCurrentSideUiSpecs(),
-                            new SideUiCoordinator.UiUpdateRequest(
-                                    /* sideUiId= */ null, /* suppressAnimations= */ true));
+                    updateMarginsForSideUi(sideUiCoordinator.getCurrentSideUiSpecs());
                 }
             }
         }
@@ -1196,18 +1190,30 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         return mDataSharingTabManager;
     }
 
-    /** Returns the {@link LoadingFullscreenCoordinator} to control loading over the activity. */
+    /**
+     * Returns the {@link LoadingFullscreenCoordinator} to control loading over the activity,
+     * creating it if needed, or null if it cannot be created because this coordinator has been
+     * destroyed.
+     */
     public @Nullable LoadingFullscreenCoordinator getLoadingFullscreenCoordinator() {
-        if (ChromeFeatureList.sAndroidStartupImprovements.isEnabled()
-                && mLoadingFullscreenCoordinator == null) {
-            initLoadingFullscreenCoordinator();
-        }
+        initLoadingFullscreenCoordinator();
         return mLoadingFullscreenCoordinator;
     }
 
+    /**
+     * Creates the {@link LoadingFullscreenCoordinator} if it does not exist yet.
+     *
+     * <p>This is called eagerly from {@link #onInflationComplete()}, or lazily by {@link
+     * #getLoadingFullscreenCoordinator()} the first time a client asks for it. It is a no-op once
+     * the coordinator exists or after {@link #onDestroy()}: the loading view stub is consumed by
+     * the first inflation and the activity is gone, so the coordinator must not be resurrected.
+     */
     private void initLoadingFullscreenCoordinator() {
+        if (mActivity == null) return;
+        if (mLoadingFullscreenCoordinator != null) return;
+
         ViewStub loadingStub = mActivity.findViewById(R.id.loading_stub);
-        assert loadingStub != null;
+        if (loadingStub == null) return;
 
         loadingStub.setLayoutResource(R.layout.loading_fullscreen);
         loadingStub.inflate();
@@ -1440,7 +1446,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         PwaBottomSheetControllerFactory.attach(mWindowAndroid, mPwaBottomSheetController);
         initCommerceSubscriptionsService();
 
-        new OneShotCallback<>(mProfileSupplier, this::initCollaborationDelegatesOnProfile);
+        new OneShotCallback<>(
+                mProfileSupplier,
+                mCallbackController.makeCancelable(this::initCollaborationDelegatesOnProfile));
 
         if (BookmarkBarUtils.isDeviceBookmarkBarCompatible(mActivity)) {
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)) {
@@ -1474,7 +1482,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         initializeTabBottomSheetManagers();
 
         if (GlicEnabling.isEnabledByFlags()
-                && (mTabBottomSheetManager != null || AndroidSidePanelEnabledFn.isEnabled())) {
+                && (mTabBottomSheetManager != null || GlicUtils.isSidePanelFormFactor(mActivity))) {
             GlicNavigationUtils.setLauncher(SigninAndHistorySyncActivityLauncherImpl::get);
             ViewStub actorOverlayStub = mActivity.findViewById(R.id.actor_overlay_stub);
             mGlicUiCoordinator =
@@ -1493,6 +1501,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                             mActivityLifecycleDispatcher,
                             getOmniboxFocusStateSupplier(),
                             mSideUiStateProviderSupplier.get());
+            if (IntentHandler.hasPendingActorTaskExtra(mActivity.getIntent())) {
+                mGlicUiCoordinator.onPendingActorTaskTrigger();
+            }
         }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DEVICE_SIGNALS_DISCLAIMER)) {
@@ -2155,7 +2166,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      */
     public void initializeCoBrowseViewFactory() {
         if (TabBottomSheetUtils.isTabBottomSheetEnabled()
-                || AndroidSidePanelEnabledFn.isEnabled()) {
+                || GlicUtils.isSidePanelFormFactor(mActivity)) {
             ContextMenuPopulatorFactory contextMenuPopulatorFactory =
                     new ChromeContextMenuPopulatorFactory(
                             /* itemDelegate= */ null,
@@ -2878,6 +2889,13 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
     public @Nullable GlicUiCoordinator getGlicUiCoordinatorForTesting() {
         return mGlicUiCoordinator;
+    }
+
+    /** Notifies the Glic UI that a pending actor task trigger was received. */
+    public void onPendingActorTaskTrigger() {
+        if (mGlicUiCoordinator != null) {
+            mGlicUiCoordinator.onPendingActorTaskTrigger();
+        }
     }
 
     public @Nullable TabBottomSheetManager getTabBottomSheetManagerForTesting() {

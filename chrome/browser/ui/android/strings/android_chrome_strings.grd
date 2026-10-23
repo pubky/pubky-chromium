@@ -1824,6 +1824,9 @@ Your Google account may have other forms of browsing history like searches and a
       <message name="IDS_HISTORY_FILTER_BY_APP" desc="Text used in the app filter button and in the header of app filter sheet.">
         Filter by app
       </message>
+      <message name="IDS_HISTORY_FILTER_BY_HOST" desc="Text used in the host filter button and in the header of host filter sheet." translateable="false">
+        Filter by host
+      </message>
       <message name="IDS_HISTORY_IPH_BUBBLE_TEXT" desc="The message on the text bubble shown to educate users about the app history filter.">
         Search by app, date, and more.
       </message>
@@ -7253,9 +7256,6 @@ To change this setting, <ph name="BEGIN_LINK">BEGIN_LINK</ph>delete the Chrome d
       </message>
 
       <!-- Touch To Fill No Passkeys Sheet -->
-      <message name="IDS_NO_PASSKEYS_SHEET_CONTENT_DESCRIPTION" is_accessibility_with_no_ui="true" desc="Accessibility string read when the no passkeys sheet is opened. It describes the bottom sheet informing users that no passkeys are available.">
-        No passkeys sheet
-      </message>
       <message name="IDS_NO_PASSKEYS_SHEET_FULL_HEIGHT" is_accessibility_with_no_ui="true" desc="Accessibility string read upon opening the bottom sheet that informs users that no passkeys are available. Even at full height, the sheet will occupy the bottom half of the screen.">
         No passkeys sheet opened at full height
       </message>

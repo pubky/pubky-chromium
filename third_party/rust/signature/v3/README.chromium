@@ -1,0 +1,11 @@
+Name: signature
+URL: https://crates.io/crates/signature
+Version: 3.0.0
+Revision: 9488e7ea66763b5cbdc7a4814a96421e0114dc97
+Update Mechanism: Manual (https://crbug.com/449898466)
+License: Apache-2.0
+License File: //third_party/rust/chromium_crates_io/vendor/signature-v3/LICENSE-APACHE
+Shipped: no
+Security Critical: yes
+
+Description: Traits for cryptographic signature algorithms (e.g. ECDSA, Ed25519)

@@ -1,0 +1,65 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/rust/rust_static_library.gni")
+import("//testing/test.gni")
+
+rust_static_library("signed_bundle_fixture") {
+  testonly = true
+
+  # CXX generates unsafe glue for the test fixture's C++ boundary.
+  allow_unsafe = true
+  crate_name = "pkresolve_signed_bundle_fixture"
+  crate_root = "signed_bundle_fixture.rs"
+  edition = "2024"
+  sources = [ "signed_bundle_fixture.rs" ]
+  cxx_bindings = [ "signed_bundle_fixture.rs" ]
+  deps = [
+    "//third_party/pkarr/bindings/chromium:pkarr",
+    "//third_party/pkarr/bindings/chromium:pkresolve",
+    "//third_party/rust/base64/v0_22:lib",
+    "//third_party/rust/serde_json/v1:lib",
+  ]
+}
+
+# Explicitly built prototype only. Requires the pinned PKResolve source at
+# //third_party/pkarr and its dependencies vendored with gnrt.
+source_set("resolver") {
+  testonly = true
+  sources = [
+    "resolver.cc",
+    "resolver.h",
+  ]
+  public_deps = [
+    "//base",
+    "//third_party/pkarr/bindings/chromium:bridge",
+    "//url",
+  ]
+  deps = [
+    "//net",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+  ]
+}
+
+test("resolver_unittests") {
+  sources = [
+    "resolver_https_unittest.cc",
+    "resolver_unittest.cc",
+    "run_all_tests.cc",
+  ]
+  deps = [
+    ":resolver",
+    ":signed_bundle_fixture",
+    "//base/test:test_support",
+    "//mojo/core/embedder",
+    "//net",
+    "//net:test_support",
+    "//services/network:network_service",
+    "//services/network:test_support",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//testing/gtest",
+  ]
+}

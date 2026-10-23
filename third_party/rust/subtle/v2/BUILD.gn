@@ -29,6 +29,7 @@ cargo_crate("lib") {
   allow_unsafe = true
 
   features = [
+    "const-generics",
     "core_hint_black_box",
     "default",
     "i128",

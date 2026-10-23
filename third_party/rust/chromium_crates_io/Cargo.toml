@@ -50,7 +50,33 @@ skrifa = "0.46.2"
 small_ctor = "0.1"
 smallvec = "1"
 static_assertions = "1"
+thiserror = "2"
 xml = "1.4.0"
+
+# External dependencies of the pinned //third_party/pkarr packet types.
+# PKARR and PKResolve themselves are built from that submodule by GN.
+[dependencies.base32]
+version = "0.5"
+
+[dependencies.document-features]
+version = "0.2"
+
+[dependencies.ed25519-dalek]
+version = "3"
+default-features = false
+
+[dependencies.getrandom]
+version = "0.4"
+default-features = false
+
+[dependencies.httpdate]
+version = "1"
+
+[dependencies.self_cell]
+version = "1"
+
+[dependencies.simple-dns]
+version = "0.12"
 
 [dependencies.bytemuck]
 version = "1"

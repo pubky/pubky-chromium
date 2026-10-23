@@ -165,6 +165,14 @@ group = 'test'
 allow_first_party_usage = false
 extra_kv = { allow_unsafe = true }
 
+[crate.base32]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_input_roots = ['../README.md']
+extra_kv = { allow_first_party_usage = false, allow_unsafe = false, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
+
 [crate.base64.extra_kv]
 allow_unsafe = false
 
@@ -191,6 +199,9 @@ extra_kv = { allow_unsafe = false }
 
 [crate.bitflags.extra_kv]
 allow_unsafe = false
+
+[crate.block-buffer]
+extra_kv = { allow_unsafe = true }
 
 [crate.bytemuck.extra_kv]
 allow_unsafe = true
@@ -262,14 +273,30 @@ extra_kv = { allow_unsafe = true }
 [crate.core_maths.extra_kv]
 allow_unsafe = false
 
+[crate.cpufeatures]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = true }
+
 [crate.crc32fast.extra_kv]
 allow_unsafe = true
+
+[crate.crypto-common]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = false }
 
 [crate.ctor]
 extra_kv = { allow_unsafe = false }
 
 [crate.ctor-proc-macro]
 extra_input_roots = ["../README.md"]
+extra_kv = { allow_unsafe = false }
+
+[crate.curve25519-dalek]
+extra_input_roots = ['../README.md', '../docs']
+extra_kv = { allow_unsafe = true }
+
+[crate.curve25519-dalek-derive]
+extra_input_roots = ['../README.md']
 extra_kv = { allow_unsafe = false }
 
 [crate.cxx]
@@ -293,6 +320,10 @@ allow_unsafe = false
 
 [crate.derivre.extra_kv]
 allow_unsafe = false
+
+[crate.digest]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = false }
 
 # TODO: Remove multiple versions of the `diplomat` crate:
 # diplomat@0.15.0, diplomat@0.16.0
@@ -322,6 +353,13 @@ multiversion_cleanup_bug = "https://crbug.com/482994758"
 [crate.displaydoc.extra_kv]
 allow_unsafe = false
 
+[crate.document-features]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_kv = { allow_first_party_usage = false, allow_unsafe = false, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
+
 [crate.dtor]
 extra_input_roots = ["../README.md"]
 extra_kv = { allow_unsafe = false }
@@ -329,6 +367,17 @@ extra_kv = { allow_unsafe = false }
 [crate.dtor-proc-macro]
 extra_input_roots = ["../README.md"]
 extra_kv = { allow_unsafe = false }
+
+[crate.ed25519]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = false }
+
+[crate.ed25519-dalek]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_kv = { allow_first_party_usage = false, allow_unsafe = false, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
 
 [crate.either.extra_kv]
 allow_unsafe = true
@@ -398,6 +447,8 @@ extra_input_roots = ["../README.md"]
 # TODO: Remove multiple versions of the `getrandom` crate:
 # getrandom@0.3.4, getrandom@0.4.1
 [crate.getrandom.extra_kv]
+visibility = ["//third_party/pkarr/bindings/chromium:pkarr"]
+allow_first_party_usage = false
 allow_unsafe = true
 multiversion_cleanup_bug = "https://crbug.com/493648964"
 
@@ -439,6 +490,17 @@ visibility = [
 [crate.hostname]
 group = 'test'
 allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
+[crate.httpdate]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_kv = { allow_first_party_usage = false, allow_unsafe = false, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
+
+[crate.hybrid-array]
+extra_input_roots = ['../README.md']
 extra_kv = { allow_unsafe = true }
 
 [crate.iana-time-zone]
@@ -643,6 +705,9 @@ extra_kv = { allow_unsafe = true }
 [crate.litemap.extra_kv]
 allow_unsafe = false
 
+[crate.litrs]
+extra_kv = { allow_unsafe = false }
+
 [crate.llguidance]
 extra_kv = { allow_unsafe = true }
 remove_build_rs = true  # See https://crbug.com/502997368
@@ -819,6 +884,9 @@ allow_unsafe = false
 extra_kv = { allow_unsafe = true }
 shipped = false
 
+[crate.rustc_version]
+extra_kv = { allow_unsafe = false }
+
 [crate.rustfft]
 extra_kv = { allow_unsafe = true }
 
@@ -836,6 +904,16 @@ allow_first_party_usage = false
 extra_kv = { allow_unsafe = true }
 
 [crate.scopeguard]
+extra_kv = { allow_unsafe = true }
+
+[crate.self_cell]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_kv = { allow_first_party_usage = false, allow_unsafe = true, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
+
+[crate.semver]
 extra_kv = { allow_unsafe = true }
 
 [crate.serde]
@@ -864,14 +942,30 @@ extra_kv = { allow_unsafe = false }
 [crate.sfv]
 extra_kv = { allow_unsafe = false }
 
+[crate.sha2]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = true }
+
 [crate.shared-brotli-patch-decoder]
 extra_kv = { allow_unsafe = true, extra_deps = ["//third_party/brotli:dec"] }
 remove_build_rs = true
 remove_deps = ['cc'] # Only used in build.rs
 
+[crate.signature]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = false }
+
 [crate.simd-adler32.extra_kv]
 allow_unsafe = true
 allow_unstable_features = ["stdarch_arm_neon_intrinsics"]
+
+[crate.simple-dns]
+# Test-only PKARR integration; not reviewed for privileged-process use.
+group = 'sandbox'
+shipped = false
+allow_first_party_usage = false
+extra_input_roots = ['../README.md']
+extra_kv = { allow_first_party_usage = false, allow_unsafe = false, visibility = ["//third_party/pkarr/bindings/chromium:pkarr"] }
 
 [crate.siphasher]
 group = 'test'
@@ -1014,6 +1108,9 @@ extra_kv = { allow_unsafe = true }
 [crate.typeid]
 allow_first_party_usage = false
 extra_kv = { allow_unsafe = true }
+
+[crate.typenum]
+extra_kv = { allow_unsafe = false }
 
 [crate.typewit]
 allow_first_party_usage = false

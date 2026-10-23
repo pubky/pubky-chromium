@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
+#include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/pubky_session/core/crypto.h"
@@ -39,6 +40,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
@@ -261,7 +263,8 @@ void PubkyIdentityBubbleView::AddSignInContent() {
       qr_code_generator::GenerateImage(
           base::as_byte_span(link), qr_code_generator::ModuleStyle::kSquares,
           qr_code_generator::LocatorStyle::kRounded,
-          qr_code_generator::CenterImage::kProductLogo,
+          *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+              IDR_PRODUCT_LOGO_128),
           qr_code_generator::QuietZone::kIncluded);
   if (qr_code.has_value()) {
     auto* image = AddChildView(std::make_unique<views::ImageView>(

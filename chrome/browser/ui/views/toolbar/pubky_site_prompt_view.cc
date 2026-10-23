@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/toolbar/pubky_identity_util.h"
+#include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/qr_code_generator/bitmap_generator.h"
@@ -27,6 +28,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_id.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/image_view.h"
@@ -285,7 +287,8 @@ void PubkySitePromptView::AddRingApproval() {
           base::as_byte_span(ring_link_),
           qr_code_generator::ModuleStyle::kSquares,
           qr_code_generator::LocatorStyle::kRounded,
-          qr_code_generator::CenterImage::kProductLogo,
+          *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+              IDR_PRODUCT_LOGO_128),
           qr_code_generator::QuietZone::kIncluded);
   if (qr_code.has_value()) {
     auto* image = row->AddChildView(std::make_unique<views::ImageView>(

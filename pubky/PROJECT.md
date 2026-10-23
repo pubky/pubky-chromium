@@ -25,7 +25,7 @@ The inherited project documents macOS ARM64 results in `pubky/VERIFICATION.md`. 
 
 Linux x86_64 is the initial reproduction target on the designated Linux builder. A resource-capped trial there is approved; the previous cloud-only assumption is superseded. No cloud purchase is approved. macOS remains an inherited, unverified-by-us platform; macOS-specific changes need actual macOS validation. Windows is part of the first milestone; Windows-specific changes need Windows validation before a release. Mobile is outside the first milestone.
 
-Each engineer works in its own checkout on its own machine. Builds run on the designated builder in one shared, persistent build folder under its host lock, one at a time; never start from an empty build folder. Running `gclient sync` or changing dependency pins needs the owner, except for the upstream syncs that [Upstream Chromium updates](#upstream-chromium-updates) allows. Never delete or clean an `out/` directory.
+Each engineer works in its own checkout on its own machine. Each designated builder has one shared, persistent build folder and runs one build at a time under its host lock; releases always build on the same builder. Never start from an empty build folder. Running `gclient sync` or changing dependency pins needs the owner, except for the upstream syncs that [Upstream Chromium updates](#upstream-chromium-updates) allows. Never delete or clean an `out/` directory.
 
 The inherited `pubky/args.gn`, `pubky/gclient.py`, and scripts target macOS ARM64 and use `caffeinate`. Do not run them on Linux as if they were validated Linux commands.
 

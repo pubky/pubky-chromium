@@ -1,0 +1,11 @@
+Name: simple-dns
+URL: https://crates.io/crates/simple-dns
+Version: 0.12.0
+Revision: 5c7ec98798d7c9f7d76df7aa3bbe754913ff5159
+Update Mechanism: Manual (https://crbug.com/449898466)
+License: MIT
+License File: //third_party/rust/chromium_crates_io/vendor/simple-dns-v0_12/LICENSE
+Shipped: no
+Security Critical: yes
+
+Description: Rust implementation to parse and write DNS packets

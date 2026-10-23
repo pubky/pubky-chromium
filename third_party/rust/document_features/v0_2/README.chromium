@@ -1,0 +1,11 @@
+Name: document-features
+URL: https://crates.io/crates/document-features
+Version: 0.2.12
+Revision: 721e708012254b81760bd2befdae0970e7a2615e
+Update Mechanism: Manual (https://crbug.com/449898466)
+License: Apache-2.0
+License File: //third_party/rust/chromium_crates_io/vendor/document-features-v0_2/LICENSE-APACHE
+Shipped: no
+Security Critical: yes
+
+Description: Extract documentation for the feature flags from comments in Cargo.toml

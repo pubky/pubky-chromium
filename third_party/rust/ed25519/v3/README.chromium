@@ -1,0 +1,14 @@
+Name: ed25519
+URL: https://crates.io/crates/ed25519
+Version: 3.0.0
+Revision: f2b087c0f38fa67b62ad1bc16a2ea62a80227fc9
+Update Mechanism: Manual (https://crbug.com/449898466)
+License: Apache-2.0
+License File: //third_party/rust/chromium_crates_io/vendor/ed25519-v3/LICENSE-APACHE
+Shipped: no
+Security Critical: yes
+
+Description: Edwards Digital Signature Algorithm (EdDSA) over Curve25519 (as specified in RFC 8032)
+support library providing signature type definitions and PKCS#8 private key
+decoding/encoding support
+

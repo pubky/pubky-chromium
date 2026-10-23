@@ -7,17 +7,23 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
+#include "base/memory/weak_ptr.h"
+#include "components/facilitated_payments/content/browser/facilitated_payments_api_client_factory.h"
 #include "components/facilitated_payments/core/browser/account_linking_result.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_utils.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace payments::facilitated {
 namespace {
@@ -140,6 +146,48 @@ TEST_F(FacilitatedPaymentsApiClientAndroidTest,
   apiClient.OnPurchaseActionResultEnum(
       env, static_cast<int32_t>(PurchaseActionResult::kResultOk));
   apiClient.OnInvokeInstrumentManagerResult(env, nullptr);
+}
+
+TEST_F(
+    FacilitatedPaymentsApiClientAndroidTest,
+    GetFacilitatedPaymentsApiClientCreator_WebContents_CreatesClientAfterNavigation) {
+  NavigateAndCommit(GURL("https://initial.example.test"));
+  FacilitatedPaymentsApiClientCreator creator =
+      GetFacilitatedPaymentsApiClientCreator(web_contents()->GetWeakPtr());
+
+  NavigateAndCommit(GURL("https://merchant.example.test"));
+
+  std::unique_ptr<FacilitatedPaymentsApiClient> api_client = creator.Run();
+  EXPECT_NE(nullptr, api_client);
+}
+
+TEST_F(FacilitatedPaymentsApiClientAndroidTest,
+       InvokeInstrumentManager_AfterNavigation_UpdatesBridge) {
+  NavigateAndCommit(GURL("https://merchant.example.test/page1"));
+  content::GlobalRenderFrameHostId initial_rfh_id = main_rfh()->GetGlobalId();
+  FacilitatedPaymentsApiClientAndroid api_client(main_rfh());
+  EXPECT_EQ(api_client.GetRenderFrameHostIdForTesting(), initial_rfh_id);
+
+  NavigateAndCommit(GURL("https://merchant.example.test/page2"));
+  ASSERT_NE(initial_rfh_id, main_rfh()->GetGlobalId());
+
+  signin::IdentityTestEnvironment identity_test_environment;
+  api_client.InvokeInstrumentManager(
+      identity_test_environment.MakeAccountAvailable("test@example.test")
+          .GetCoreAccountInfo(),
+      /*action_token=*/{'A', 'c', 't', 'i', 'o', 'n'}, base::DoNothing());
+
+  EXPECT_EQ(api_client.GetRenderFrameHostIdForTesting(),
+            main_rfh()->GetGlobalId());
+}
+
+TEST_F(FacilitatedPaymentsApiClientAndroidTest,
+       GetFacilitatedPaymentsApiClientCreator_NullWebContents_ReturnsNullptr) {
+  FacilitatedPaymentsApiClientCreator creator =
+      GetFacilitatedPaymentsApiClientCreator(
+          base::WeakPtr<content::WebContents>());
+
+  EXPECT_EQ(nullptr, creator.Run());
 }
 
 }  // namespace

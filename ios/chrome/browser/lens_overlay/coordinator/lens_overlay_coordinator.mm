@@ -33,6 +33,7 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_overflow_menu_delegate.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_overflow_menu_factory.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_pan_tracker.h"
+#import "ios/chrome/browser/lens_overlay/model/lens_overlay_presentation_type.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_snapshot_controller.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
 #import "ios/chrome/browser/lens_overlay/model/snapshot_cover_view_controller.h"
@@ -326,6 +327,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 }
 
 - (void)stop {
+  if (self.stopped) {
+    return;
+  }
   self.stopped = YES;
 
   if (Browser* browser = self.browser) {
@@ -575,6 +579,8 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   // If the destroy command is invoked on the stopped coordinator, immediately
   // destroy all dependencies even if another exit flow is in progress.
   if (self.stopped) {
+    [self dismissLensOverlayAnimated:NO completion:nil];
+    [self exitFullscreenAnimated:NO];
     [self completeLensOverlayDestroy];
     return;
   }
@@ -590,7 +596,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   __weak __typeof(self) weakSelf = self;
   [self exitAnimated:shouldAnimate
           completion:^{
-            [weakSelf completeLensOverlayDestroy];
+            if (!weakSelf.isStopped) {
+              [weakSelf completeLensOverlayDestroy];
+            }
           }];
 }
 
@@ -600,6 +608,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   __weak __typeof(self) weakSelf = self;
 
   auto onExitComplete = ^{
+    if (weakSelf.isStopped) {
+      return;
+    }
     if (!animated) {
       [weakSelf exitFullscreenAnimated:NO];
     }
@@ -609,6 +620,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   };
 
   auto dismissLensOverlay = ^{
+    if (weakSelf.isStopped) {
+      return;
+    }
     [weakSelf dismissLensOverlayAnimated:animated completion:onExitComplete];
   };
 
@@ -660,6 +674,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
       _containerPresenter;
 
   void (^onSelectionExitPositionSettled)() = ^{
+    if (weakSelf.isStopped) {
+      return;
+    }
     [weakSelf exitFullscreenAnimated:YES];
     if (!weakContainerPresenter) {
       if (completion) {
@@ -681,8 +698,11 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
 - (void)dismissLensOverlayAnimated:(BOOL)animated
                         completion:(ProceduralBlock)completion {
-  if (!_containerPresenter && completion) {
-    completion();
+  if (!_containerPresenter) {
+    if (completion) {
+      completion();
+    }
+    return;
   }
   [_containerPresenter dismissContainerAnimated:animated completion:completion];
 }
@@ -893,12 +913,6 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
 - (NSDirectionalEdgeInsets)lensOverlayContainerPresenterInsetsForPresentation:
     (LensOverlayContainerPresenter*)containerPresenter {
-  // LVF on iPad has no top toolbar, so postcapture should match the LVF frame
-  // and be presented fullscreen.
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET &&
-      lens::IsLVFEntrypoint(_entrypoint)) {
-    return NSDirectionalEdgeInsetsZero;
-  }
   return self.presentationEnvironment.presentationInsetsForLensOverlay;
 }
 
@@ -1566,17 +1580,13 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 // Creates or updates the initial visible area layout guide, to ensure that it
 // takes into account the AppBar when it overlaps the browser.
 - (void)updateInitialVisibleAreaLayoutGuide {
-  if (!IsChromeNextIaEnabled() || !IsFullscreenRefactoringEnabled()) {
-    return;
-  }
-
-  if (!_containerViewController) {
+  if (!_containerViewController || !_selectionViewController) {
     return;
   }
 
   if (!_initialVisibleAreaLayoutGuide) {
     _initialVisibleAreaLayoutGuide = [[UILayoutGuide alloc] init];
-    [_containerViewController.view
+    [_selectionViewController.view
         addLayoutGuide:_initialVisibleAreaLayoutGuide];
   }
 
@@ -1584,15 +1594,21 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
     [NSLayoutConstraint deactivateConstraints:_initialVisibleAreaConstraints];
   }
 
-  NSLayoutYAxisAnchor* bottomAnchor =
-      _containerViewController.view.bottomAnchor;
-
+  BOOL snapToAppBarAllowed =
+      IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled();
+  BOOL usesSidePanel =
+      lens::ResultPagePresentationFor(self.baseViewController) ==
+      lens::ResultPagePresentationType::kSidePanel;
   BOOL appBarAtBottom =
       self.browser->GetSceneState().layoutState.appBarPosition ==
       AppBarPosition::kBottom;
-  BOOL viewInWindow = _containerViewController.view.window != nil;
+  BOOL viewInWindow = _selectionViewController.view.window != nil;
+  BOOL shouldSnapToAppBar =
+      snapToAppBarAllowed && appBarAtBottom && viewInWindow && !usesSidePanel;
 
-  if (appBarAtBottom && viewInWindow) {
+  NSLayoutYAxisAnchor* bottomAnchor =
+      _selectionViewController.view.bottomAnchor;
+  if (shouldSnapToAppBar) {
     LayoutGuideCenter* layoutGuideCenter =
         LayoutGuideCenterForBrowser(self.browser);
     UIView* appBarView =
@@ -1604,11 +1620,11 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
   _initialVisibleAreaConstraints = @[
     [_initialVisibleAreaLayoutGuide.topAnchor
-        constraintEqualToAnchor:_containerViewController.view.topAnchor],
+        constraintEqualToAnchor:_selectionViewController.view.topAnchor],
     [_initialVisibleAreaLayoutGuide.leadingAnchor
-        constraintEqualToAnchor:_containerViewController.view.leadingAnchor],
+        constraintEqualToAnchor:_selectionViewController.view.leadingAnchor],
     [_initialVisibleAreaLayoutGuide.trailingAnchor
-        constraintEqualToAnchor:_containerViewController.view.trailingAnchor],
+        constraintEqualToAnchor:_selectionViewController.view.trailingAnchor],
     [_initialVisibleAreaLayoutGuide.bottomAnchor
         constraintEqualToAnchor:bottomAnchor],
   ];
@@ -1616,9 +1632,11 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   [NSLayoutConstraint activateConstraints:_initialVisibleAreaConstraints];
 
   // Only update selection VC's visible area layout guide if results bottom
-  // sheet is not currently visible.
-  if (!self.isResultsBottomSheetCreated ||
-      !_resultsPagePresenter.isResultPageVisible) {
+  // sheet is not currently visible or if it's a side panel.
+  BOOL bottomSheetNotVisible = !self.isResultsBottomSheetCreated ||
+                               !_resultsPagePresenter.isResultPageVisible;
+  BOOL shouldUpdateLayourGuide = usesSidePanel || bottomSheetNotVisible;
+  if (shouldUpdateLayourGuide) {
     _selectionViewController.visibleAreaLayoutGuide =
         _initialVisibleAreaLayoutGuide;
   }

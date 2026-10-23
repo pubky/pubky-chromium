@@ -949,6 +949,12 @@ void ClientSideDetectionHostBase::
           ? "ConditionalImageResize.Enabled"
           : "ConditionalImageResize.Control");
 
+  verdict->mutable_population()->add_finch_active_groups(
+      base::FeatureList::IsEnabled(
+          kClientSideDetectionScamDetectionRequestWithUrl)
+          ? "ClientSideDetectionScamDetectionRequestWithUrl.Enabled"
+          : "ClientSideDetectionScamDetectionRequestWithUrl.Control");
+
   if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
     verdict->mutable_population()->add_finch_active_groups(
         "ClientSideDetectionNewObservers.Enabled." +
@@ -1306,8 +1312,9 @@ void ClientSideDetectionHostBase::OnInnerTextComplete(
 
   LogClientSideDetectionEvent(ClientSideDetectionEvent::kIntelligentScanBegin,
                               verdict->client_side_detection_type());
+  std::string url = verdict->url();
   intelligent_scan_id_ = intelligent_scan_delegate_->StartIntelligentScan(
-      inner_text,
+      inner_text, std::move(url),
       base::BindOnce(&ClientSideDetectionHostBase::OnIntelligentScanDone,
                      base_weak_factory_.GetWeakPtr(), std::move(verdict),
                      did_match_high_confidence_allowlist, is_invalid_ip));
@@ -1478,6 +1485,8 @@ safe_browsing::ThreatSubtype ClientSideDetectionHostBase::GetThreatSubtype(
       return safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_VERDICT_3;
     case IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_4:
       return safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_VERDICT_4;
+    case IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_BILLING:
+      return safe_browsing::ThreatSubtype::SCAM_EXPERIMENT_VERDICT_BILLING;
     case IntelligentScanVerdict::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT:
       return safe_browsing::ThreatSubtype::
           SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT;

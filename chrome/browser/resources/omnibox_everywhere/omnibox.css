@@ -141,6 +141,13 @@ cr-searchbox-input::part(searchbox-input) {
   padding-top: 2px;
 }
 
+#inputWrapper:has(#profileIcon[is-enterprise-profile]):not(:has(#composeButton))
+    cr-searchbox-input::part(searchbox-input),
+:host:has(#profileIcon[is-enterprise-profile]):not(:has(#composeButton))
+    cr-searchbox-input::part(searchbox-input) {
+  padding-inline-end: 88px;
+}
+
 :host([compose-button-enabled]) cr-searchbox-input::part(searchbox-input) {
   padding-inline-end: 8px;
 }
@@ -280,18 +287,6 @@ cr-composebox-contextual-entrypoint-and-menu,
 
 :host([is-fusebox-enabled]) .searchbox-icon-button-container {
   top: 10px;
-}
-
-:host([is-fusebox-enabled][compose-button-enabled]
-    [searchbox-lens-search-enabled_]) .searchbox-icon-button-container.lens {
-  inset-inline-end: calc(
-      var(--cr-searchbox-icon-spacing) + var(--cr-compose-button-width));
-}
-
-:host([is-fusebox-enabled][compose-button-enabled]
-    [searchbox-lens-search-enabled_]) .searchbox-icon-button-container.voice {
-  inset-inline-end: calc(var(--cr-searchbox-voice-lens-size)
-      + var(--cr-searchbox-icon-spacing) + var(--cr-compose-button-width));
 }
 
 :host([is-fusebox-enabled][is-dragging-file]) {

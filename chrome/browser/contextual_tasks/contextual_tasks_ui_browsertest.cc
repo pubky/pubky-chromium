@@ -101,18 +101,12 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
               (const std::vector<uint8_t>& message),
               (override));
   MOCK_METHOD(void, OnHandshakeComplete, (), (override));
-  MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
-  MOCK_METHOD(void,
-              OnContextUpdated,
-              (std::vector<contextual_tasks::mojom::ContextInfoPtr>),
-              (override));
   MOCK_METHOD(void, HideInput, (), (override));
   MOCK_METHOD(void, RestoreInput, (), (override));
   MOCK_METHOD(void, EnterBasicMode, (), (override));
   MOCK_METHOD(void, ExitBasicMode, (), (override));
   MOCK_METHOD(void, OnZeroStateChange, (bool is_zero_state), (override));
   MOCK_METHOD(void, SetInNlm, (bool in_nlm), (override));
-  MOCK_METHOD(void, OnAiPageStatusChanged, (bool), (override));
   MOCK_METHOD(void,
               OnWindowClosed,
               (const contextual_tasks::ContextualWindowId& window_id),

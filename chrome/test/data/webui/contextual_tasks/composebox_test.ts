@@ -6,12 +6,7 @@ import 'chrome://contextual-tasks/app.js';
 
 import type {ContextualTasksAppElement} from 'chrome://contextual-tasks/app.js';
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
-/* clang-format off */
 import {ComposeboxFile, GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
-// <if expr="not is_android">
-import {TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
-// </if>
-/* clang-format on */
 import {PageHandlerRemote as ComposeboxPageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {SubmitButtonIconType} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
@@ -24,7 +19,12 @@ import {GlowAnimationState, VoiceSearchState} from 'chrome://resources/cr_compon
 import {createAutocompleteMatch, createAutocompleteResultForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
+/* clang-format off */
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+// <if expr="not is_android">
+import {TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+// </if>
+/* clang-format on */
 import type {AutocompleteResult, PageRemote as SearchboxPageRemote, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -271,7 +271,6 @@ suite('ContextualTasksComposeboxTest', () => {
   test('TooltipVisibilityUpdatesOnResize', () => {
     mockTimer.install();
     const composeboxElement = contextualTasksApp.$.composebox;
-    const tooltip = contextualTasksApp.$.onboardingTooltip;
 
     // Force show tooltip
     loadTimeData.overrideValues({
@@ -289,7 +288,10 @@ suite('ContextualTasksComposeboxTest', () => {
         document.createElement('div');
 
     contextualTasksApp.updateTooltipVisibilityForTesting();
-    assertTrue(tooltip!.shouldShow);
+    const tooltip = contextualTasksApp.shadowRoot.querySelector(
+        'contextual-tasks-onboarding-tooltip');
+    assertTrue(!!tooltip);
+    assertTrue(tooltip.shouldShow);
 
     // Resize event
     const resizeEvent = new CustomEvent('composebox-resize', {
@@ -301,7 +303,7 @@ suite('ContextualTasksComposeboxTest', () => {
 
     // Tooltip should still be shown and position updated (implicitly via resize
     // observer or logic)
-    assertTrue(tooltip!.shouldShow);
+    assertTrue(tooltip.shouldShow);
   });
 
   test('TooltipResizeObserverCoexistsWithResizeObserver', () => {
@@ -350,7 +352,6 @@ suite('ContextualTasksComposeboxTest', () => {
   test('TooltipImpressionIncrementsAfterDelay', () => {
     mockTimer.install();
     const composeboxElement = contextualTasksApp.$.composebox;
-    const tooltip = contextualTasksApp.$.onboardingTooltip;
 
     // Force show tooltip with delay.
     loadTimeData.overrideValues({
@@ -369,7 +370,10 @@ suite('ContextualTasksComposeboxTest', () => {
 
     // Trigger update.
     contextualTasksApp.updateTooltipVisibilityForTesting();
-    assertTrue(tooltip!.shouldShow);
+    const tooltip = contextualTasksApp.shadowRoot.querySelector(
+        'contextual-tasks-onboarding-tooltip');
+    assertTrue(!!tooltip);
+    assertTrue(tooltip.shouldShow);
 
     // Should not have incremented yet.
     assertEquals(0, contextualTasksApp.numberOfTimesTooltipShownForTesting);
@@ -996,6 +1000,7 @@ suite('ContextualTasksComposeboxTest', () => {
       lastActive: {internalValue: BigInt(100)},
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
     searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(tabInfo, null);
     await searchboxCallbackRouterRemote.$.flushForTesting();
@@ -1070,6 +1075,7 @@ suite('ContextualTasksComposeboxTest', () => {
       lastActive: {internalValue: BigInt(100)},
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
     innerComposebox.aimThreadRestoredTabs = [restoredTab];
 
@@ -1097,6 +1103,7 @@ suite('ContextualTasksComposeboxTest', () => {
       lastActive: {internalValue: BigInt(200)},
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
     searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(newTab, null);
     await searchboxCallbackRouterRemote.$.flushForTesting();
@@ -1116,6 +1123,7 @@ suite('ContextualTasksComposeboxTest', () => {
       lastActive: {internalValue: BigInt(100)},
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
     searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(tabInfo, null);
     await searchboxCallbackRouterRemote.$.flushForTesting();
@@ -1152,6 +1160,58 @@ suite('ContextualTasksComposeboxTest', () => {
     assertFalse(innerComposebox.getHasAutomaticActiveTabChipToken());
   });
 
+  test('NewThreadClearsRestoredTabsAndKeepsAutoSuggestedTab', async () => {
+    const innerComposebox = contextualTasksApp.$.composebox.$.composebox;
+    innerComposebox.contextManagementInComposeboxEnabled = true;
+
+    const autoTab = {
+      tabId: 1,
+      title: 'Auto Tab',
+      url: 'https://example.com',
+      lastActive: {internalValue: BigInt(100)},
+      showInCurrentTabChip: true,
+      showInPreviousTabChip: false,
+      isLoading: false,
+    };
+    searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(autoTab, null);
+    await searchboxCallbackRouterRemote.$.flushForTesting();
+    await microtasksFinished();
+    await innerComposebox.updateComplete;
+
+    // Tabs submitted in the previous thread.
+    innerComposebox.aimThreadRestoredTabs = [
+      {
+        tabId: 2,
+        title: 'Previous Thread Tab 1',
+        url: 'https://example.com/2',
+        lastActive: {internalValue: BigInt(50)},
+        showInCurrentTabChip: false,
+        showInPreviousTabChip: false,
+        isLoading: false,
+      },
+      {
+        tabId: 3,
+        title: 'Previous Thread Tab 2',
+        url: 'https://example.com/3',
+        lastActive: {internalValue: BigInt(25)},
+        showInCurrentTabChip: false,
+        showInPreviousTabChip: false,
+        isLoading: false,
+      },
+    ];
+    await innerComposebox.updateComplete;
+
+    // Calling `clearInputAndFocus()` (what `onNewThreadClick_()` calls) drops
+    // the previous thread's restored tabs but keeps the auto-suggested tab.
+    contextualTasksApp.$.composebox.clearInputAndFocus();
+    await microtasksFinished();
+    await innerComposebox.updateComplete;
+
+    assertEquals(0, innerComposebox.aimThreadRestoredTabs.length);
+    assertEquals(1, innerComposebox.files.size);
+    assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
+  });
+
   test('SingleAutoTabFileDoesNotUpdatePlaceholder', async () => {
     const innerComposebox = contextualTasksApp.$.composebox.$.composebox;
     const defaultApiHint =
@@ -1165,6 +1225,7 @@ suite('ContextualTasksComposeboxTest', () => {
       lastActive: {internalValue: BigInt(100)},
       showInCurrentTabChip: false,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
     searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(tabInfo, null);
     await searchboxCallbackRouterRemote.$.flushForTesting();
@@ -1181,6 +1242,7 @@ suite('ContextualTasksComposeboxTest', () => {
       url: 'https://example.com/1',
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
       lastActive: {internalValue: BigInt(1)},
     };
 
@@ -1809,9 +1871,10 @@ suite('ContextualTasksComposeboxForkDropdownTest', () => {
               queryId: parts.innerComposebox.activeQueryId,
               input: '',
               matches: [
-                createAutocompleteMatch({isNoncannedAimSuggestion: true}),
+                createAutocompleteMatch(),
                 createAutocompleteMatch(),
               ],
+              showAimActivityLink: true,
             }));
         await searchboxCallbackRouterRemote.$.flushForTesting();
         await innerComposebox.updateComplete;
@@ -1833,9 +1896,10 @@ suite('ContextualTasksComposeboxForkDropdownTest', () => {
           queryId: parts.innerComposebox.activeQueryId,
           input: '',
           matches: [
-            createAutocompleteMatch({isNoncannedAimSuggestion: true}),
+            createAutocompleteMatch(),
             createAutocompleteMatch(),
           ],
+          showAimActivityLink: true,
         }));
     await searchboxCallbackRouterRemote.$.flushForTesting();
     await innerComposebox.updateComplete;
@@ -1953,6 +2017,9 @@ suite('ContextualTasksComposeboxForkContextMenuTest', () => {
       ComposeboxPageHandlerRemote;
   let mockSearchboxPageHandler: TestMock<SearchboxPageHandlerRemote>&
       SearchboxPageHandlerRemote;
+  // <if expr="not is_android">
+  let searchboxCallbackRouterRemote: SearchboxPageRemote;
+  // </if>
   let parts: CtComposeboxAppParts;
 
   // The inner element initializes `smartTabSharingVisible` based on
@@ -2021,7 +2088,14 @@ suite('ContextualTasksComposeboxForkContextMenuTest', () => {
     mockSearchboxPageHandler.setResultFor(
         'getInputState', Promise.resolve({state: new MockInputState()}));
     const searchboxCallbackRouter = new SearchboxPageCallbackRouter();
+    // The remote is only needed by the desktop-only tests below.
+    // <if expr="is_android">
     searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
+    // </if>
+    // <if expr="not is_android">
+    searchboxCallbackRouterRemote =
+        searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
+    // </if>
     ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
         mockComposeboxPageHandler, mockSearchboxPageHandler,
         searchboxCallbackRouter));
@@ -2217,7 +2291,7 @@ suite('ContextualTasksComposeboxForkContextMenuTest', () => {
       // `new URL()`.
       url: 'https://example.com/',
       delayUpload: false,
-      origin: TabUploadOrigin.CURRENT_TAB_CHIP,
+      origin: TabAttachmentSource.kCurrentTabChip,
     });
     await mockSearchboxPageHandler.whenCalled('addTabContext');
     await microtasksFinished();
@@ -2229,6 +2303,92 @@ suite('ContextualTasksComposeboxForkContextMenuTest', () => {
     assertEquals(true, activeArg);
     await microtasksFinished();
     assertEquals(0, innerComposebox.attachedContext.size);
+  });
+
+  // The overlapping favicon coins are separated by a 2px border that must be
+  // painted in the color of the surface they sit on, so the gap reads as
+  // background rather than a light outline.
+  test('favicon coin border matches the entrypoint surface', async () => {
+    loadTimeData.overrideValues({
+      tabFaviconChipsToCoinsEnabled: true,
+      energyEffectEnabled: true,
+    });
+    await mountApp(/*smartTabSharingVisible=*/ false);
+    const {app, wrapper, innerComposebox} = parts;
+    const entrypointAndMenu = getEntrypointAndMenu();
+
+    // The wrapper only settles out of tool mode once the browser has sent an
+    // input state, and the entrypoint pill is transparent while in tool mode.
+    searchboxCallbackRouterRemote.onInputStateChanged(new MockInputState());
+    await searchboxCallbackRouterRemote.$.flushForTesting();
+
+    // Attach two tabs through the real chain so the coins render inside the
+    // entrypoint button.
+    for (const id of [1, 2]) {
+      mockSearchboxPageHandler.resetResolver('addTabContext');
+      // Each attachment is keyed by its token, so use a distinct one per tab.
+      mockSearchboxPageHandler.setResultFor(
+          'addTabContext',
+          Promise.resolve({high: BigInt(id), low: BigInt(id)}));
+      entrypointAndMenu.fire('add-tab-context', {
+        id,
+        title: `Shared tab ${id}`,
+        url: `https://example${id}.com/`,
+        delayUpload: false,
+        origin: TabAttachmentSource.kCurrentTabChip,
+      });
+      await mockSearchboxPageHandler.whenCalled('addTabContext');
+    }
+
+    async function settleChain() {
+      await microtasksFinished();
+      await app.updateComplete;
+      await wrapper.updateComplete;
+      await innerComposebox.updateComplete;
+      await entrypointAndMenu.updateComplete;
+    }
+    await settleChain();
+    assertEquals(2, innerComposebox.attachedContext.size);
+    assertFalse(
+        wrapper.hasAttribute('in-tool-mode_'),
+        'the entrypoint pill is only painted outside of tool mode');
+
+    const entrypointButton = entrypointAndMenu.shadowRoot.querySelector(
+        'cr-composebox-contextual-entrypoint-button');
+    assertTrue(!!entrypointButton);
+    await entrypointButton.updateComplete;
+    const entrypoint =
+        entrypointButton.shadowRoot.querySelector<HTMLElement>('#entrypoint');
+    assertTrue(!!entrypoint);
+    const faviconGroup =
+        entrypointButton.shadowRoot.querySelector('composebox-favicon-group');
+    assertTrue(!!faviconGroup, 'favicon coins should render for shared tabs');
+    await faviconGroup.updateComplete;
+    const coins =
+        faviconGroup.shadowRoot.querySelectorAll<HTMLElement>('.favicon-item');
+    assertEquals(2, coins.length);
+
+    function assertCoinBordersMatchSurface(label: string, pill: HTMLElement) {
+      const surface = window.getComputedStyle(pill).backgroundColor;
+      assertNotEquals(
+          'rgba(0, 0, 0, 0)', surface,
+          `${label}: entrypoint pill should have an opaque background`);
+      for (const coin of coins) {
+        const style = window.getComputedStyle(coin);
+        assertEquals('2px', style.borderTopWidth, `${label}: border width`);
+        assertEquals(
+            surface, style.borderTopColor,
+            `${label}: coin border should match the entrypoint surface`);
+      }
+    }
+
+    app.toggleAttribute('dark-mode_', false);
+    await settleChain();
+    assertCoinBordersMatchSurface('light', entrypoint);
+
+    app.toggleAttribute('dark-mode_', true);
+    await settleChain();
+    assertCoinBordersMatchSurface('dark', entrypoint);
   });
   // </if>
 });

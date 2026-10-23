@@ -39,6 +39,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.espresso.Espresso;
 import androidx.test.espresso.matcher.BoundedMatcher;
 import androidx.test.filters.MediumTest;
+import androidx.test.runner.lifecycle.Stage;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -50,12 +51,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
@@ -300,6 +303,52 @@ public class SettingsPageTest {
         onViewWaiting(withText("Microsoft Bing")).check(matches(isDisplayed()));
     }
 
+    /**
+     * Recreates the activity the way a real theme change does. Unlike {@link
+     * ChromeTabbedActivityTestRule#recreateActivity()}, which calls {@link
+     * android.app.Activity#recreate()} directly, this goes through {@link
+     * org.chromium.chrome.browser.app.ChromeActivity#onNightModeStateChanged()}, which detaches
+     * tabs for reparenting before recreating the activity.
+     */
+    private void recreateActivityForThemeChange() {
+        ChromeTabbedActivity activity = mActivityTestRule.getActivity();
+        ChromeTabbedActivity newActivity =
+                ApplicationTestUtils.waitForActivityWithClass(
+                        ChromeTabbedActivity.class,
+                        Stage.RESUMED,
+                        activity::onNightModeStateChanged);
+        mActivityTestRule.setActivity(newActivity);
+    }
+
+    /** Regression test for crbug.com/566898692. */
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    public void testThemeSwitchWithTabReparentingRestoresDetailFragment() {
+        mActivityTestRule.loadUrl("chrome-native://settings/");
+        onViewWaiting(withText(R.string.search_engine_settings)).check(matches(isDisplayed()));
+
+        // Open the SearchEngineSettings detail fragment.
+        var matcher =
+                allOf(
+                        withId(R.id.recycler_view),
+                        hasDescendant(withText(R.string.search_engine_settings)));
+        onViewWaiting(matcher)
+                .perform(scrollTo(hasDescendant(withText(R.string.search_engine_settings))));
+        onViewWaiting(withText(R.string.search_engine_settings)).perform(click());
+        onViewWaiting(withText("Microsoft Bing")).check(matches(isDisplayed()));
+
+        // Recreate the activity through the theme change path, which detaches the tab.
+        recreateActivityForThemeChange();
+
+        // Verify the header pane and the SearchEngineSettings detail fragment are restored.
+        onViewWaiting(allOf(withId(R.id.action_bar), isDisplayed())).check(matches(isDisplayed()));
+        onViewWaiting(allOf(withText(R.string.prefs_privacy_security), isDisplayed()))
+                .check(matches(isDisplayed()));
+        onViewWaiting(allOf(withText("Microsoft Bing"), isDisplayed()))
+                .check(matches(isDisplayed()));
+    }
+
     /** Regression test for https://crbug.com/535695748. */
     @Test
     @MediumTest
@@ -483,7 +532,7 @@ public class SettingsPageTest {
         onViewWaiting(withId(R.id.search_query)).check(matches(isFocused()));
 
         // Tap on the back button in the search box to exit search state.
-        onViewWaiting(withId(R.id.back_arrow_icon)).perform(click());
+        clickSearchBackArrow();
         onViewWaiting(withId(R.id.search_box)).check(matches(isDisplayed()));
 
         // Tap on search box a second time and verify search query is focused.
@@ -638,7 +687,7 @@ public class SettingsPageTest {
         ensureTwoColumnMode();
 
         // Tap on back arrow in search query box to exit search.
-        onViewWaiting(withId(R.id.back_arrow_icon)).perform(click());
+        clickSearchBackArrow();
 
         // Verify that in two-column mode, the search box is visible and the detail pane is
         // not blank (shows the initial detail fragment, e.g. search engine settings in header
@@ -681,7 +730,7 @@ public class SettingsPageTest {
                 .check(matches(isDisplayed()));
 
         // Tap on back arrow in search query box to exit search.
-        onViewWaiting(withId(R.id.back_arrow_icon)).perform(click());
+        clickSearchBackArrow();
 
         // Verify that the search box is visible and Google Services detail pane is displayed.
         onViewWaiting(withId(R.id.search_box)).check(matches(isDisplayed()));
@@ -1007,7 +1056,7 @@ public class SettingsPageTest {
                 queryBounds.right);
 
         // Tap on back arrow to exit search state.
-        onViewWaiting(withId(R.id.back_arrow_icon)).perform(click());
+        clickSearchBackArrow();
         onViewWaiting(withId(R.id.search_box)).check(matches(isDisplayed()));
 
         // Verify search_box still aligns with preference items after exiting search.
@@ -1020,6 +1069,61 @@ public class SettingsPageTest {
                 "Search box right edge should align after exiting search",
                 firstItemBounds.right,
                 searchBoxBoundsAfterExit.right);
+    }
+
+    /**
+     * Regression test for https://crbug.com/563047017 under SettingsInTabUrlNav. Loading root
+     * settings in two-column mode fills the detail pane with a default page. Leaving two-column
+     * mode must then show root settings rather than that page, which the user never navigated to.
+     */
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
+    public void testRootSettingsShownAfterLeavingTwoColumn_urlNav() {
+        mActivityTestRule.loadUrl("chrome-native://settings/");
+        onViewWaiting(withText(R.string.search_engine_settings)).check(matches(isDisplayed()));
+
+        boolean isTwoColumn =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            var hostFragment =
+                                    SettingsHostFragment.get(mActivityTestRule.getActivity());
+                            return hostFragment != null
+                                    && hostFragment.isTwoColumnSettingsVisible();
+                        });
+        Assume.assumeTrue("Settings must start in two-column mode.", isTwoColumn);
+
+        // Resize container to narrow width (500px <= 632dp threshold) to force single-column mode.
+        setSettingsContainerWidth(500);
+        try {
+            ensureSingleColumnMode();
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        var hostFragment =
+                                SettingsHostFragment.get(mActivityTestRule.getActivity());
+                        return hostFragment != null
+                                && hostFragment.getMainFragment() instanceof MainSettings;
+                    },
+                    "Root settings should be shown after leaving two-column mode.");
+        } finally {
+            setSettingsContainerWidth(ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+    }
+
+    /** Sets the width of the view containing the settings page and requests a layout pass. */
+    private void setSettingsContainerWidth(int width) {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    var activity = mActivityTestRule.getActivity();
+                    View settingsActivity = activity.findViewById(R.id.settings_activity);
+                    assertNotNull(settingsActivity);
+                    View parent = (View) settingsActivity.getParent();
+                    var lp = parent.getLayoutParams();
+                    lp.width = width;
+                    parent.setLayoutParams(lp);
+                    ViewUtils.requestLayout(parent, "SettingsPageTest.setSettingsContainerWidth");
+                });
     }
 
     /**
@@ -1195,6 +1299,25 @@ public class SettingsPageTest {
                     var hostFragment = SettingsHostFragment.get(mActivityTestRule.getActivity());
                     assertNotNull(message, hostFragment);
                     return hostFragment;
+                });
+    }
+
+    /**
+     * Clicks the search back arrow to exit search state. Uses {@link View#performClick()} on the UI
+     * thread after waiting for the view to be displayed because {@code R.id.back_arrow_icon} has a
+     * {@code TooltipCompat} long-click listener: if the main thread stalls for >400ms between
+     * {@code ACTION_DOWN} and {@code ACTION_UP} during a synthetic Espresso tap, the tooltip
+     * long-press consumes the gesture and {@link View#onTouchEvent} skips {@code performClick()}.
+     * https://crbug.com/562493964
+     */
+    private void clickSearchBackArrow() {
+        onViewWaiting(withId(R.id.back_arrow_icon)).check(matches(isDisplayed()));
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    View backArrow =
+                            mActivityTestRule.getActivity().findViewById(R.id.back_arrow_icon);
+                    assertNotNull(backArrow);
+                    assertTrue(backArrow.performClick());
                 });
     }
 

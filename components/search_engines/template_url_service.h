@@ -62,8 +62,9 @@ class RegionalCapabilitiesService;
 }  // namespace regional_capabilities
 
 namespace search_engines {
-class SearchEngineChoiceService;
 class ChoiceScreenData;
+class SearchEngineChoiceService;
+class SearchEngineSettingsDataProvider;
 }  // namespace search_engines
 
 namespace syncer {
@@ -142,46 +143,6 @@ class TemplateURLService final : public WebDataServiceConsumer,
     GURL normalized_url;
     std::u16string search_terms;
   };
-
-  // Container for categorized search engine metadata. It groups TemplateURLs
-  // into specific buckets based on their type (e.g., prepopulated, starter
-  // pack, or custom) and their active state. This structure is primarily used
-  // to pass organized lists from the `TemplateURLService` to the WebUI settings
-  // page.
-  struct CategorizedTemplateUrls {
-    CategorizedTemplateUrls();
-    ~CategorizedTemplateUrls();
-    CategorizedTemplateUrls(const CategorizedTemplateUrls& other);
-
-    // All prepopulated engines retrieved from `GetPrepopulatedEngines()`, and
-    // custom shortcuts that are currently active. This always includes the
-    // current default search engine.
-    TemplateURLVector active_site_shortcuts;
-    // Custom shortcuts that are currently active.
-    TemplateURLVector inactive_site_shortcuts;
-    // Shortcuts with a starter pack id and extensions that are currently
-    // active.
-    TemplateURLVector active_feature_shortcuts;
-    // Shortcuts with a starter pack id and extensions that are currently
-    // inactive.
-    TemplateURLVector inactive_feature_shortcuts;
-  };
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  struct PrepopulatedAndRecentlyVisitedTemplateUrls {
-    PrepopulatedAndRecentlyVisitedTemplateUrls();
-    ~PrepopulatedAndRecentlyVisitedTemplateUrls();
-    PrepopulatedAndRecentlyVisitedTemplateUrls(
-        const PrepopulatedAndRecentlyVisitedTemplateUrls& other);
-
-    // All prepopulated engines retrieved from `GetPrepopulatedEngines()`. This
-    // always includes the current default search engine.
-    TemplateURLVector prepopulated_urls;
-    // A limited number of recently visited URLs, defined and sorted through
-    // `SortAndFilterRecentlyVisitedURLs()`
-    TemplateURLVector recently_visited_urls;
-  };
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
   // Values for an enumerated histogram used to track keyword conflicts between
   // search engines created by policy and search engines the user manually
@@ -458,35 +419,12 @@ class TemplateURLService final : public WebDataServiceConsumer,
   //       2.) The default search engine is disabled by policy.
   const TemplateURL* GetDefaultSearchProvider() const;
 
-  // Returns a CategorizedTemplateUrls object containing all TemplateURLs
-  // categorized into specific buckets (active/inactive site shortcuts and
-  // feature shortcuts).
-  //
-  // The ordering of `active_site_shortcuts` is specifically handled to ensure
-  // that prepopulated regional engines appear first in the order defined by the
-  // prepopulate_data_resolver. Enterprise policy search engines (both mandatory
-  // and recommended) and user-added (custom) engines are appended to the end of
-  // this list and sorted alphabetically.
-  //
-  // `disabled_starter_pack_ids` contains all `starter_pack_id`s that should not
-  // be included in either of the lists.
-  const CategorizedTemplateUrls GetCategorizedTemplateURLs(
-      template_url_starter_pack_data::StarterPackIdSet
-          disabled_starter_pack_ids =
-              template_url_starter_pack_data::StarterPackIdSet());
-
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  // Returns an object containing two lists. The first one contains engines that
-  // are prepopulated (in the order defined by the prepopulate_data_resolver,
-  // created by policy or the default search engine. The second one contains
-  // recently visited engines.
-  // In contrast to `GetCategorizedTemplateURLs()`, this only creates these two
-  // lists and omits any extension or starter pack shortcuts. Additionally, as
-  // there is no way to activate/deactivate engines on platforms that use this
-  // function, there is no notion of "active" here.
-  PrepopulatedAndRecentlyVisitedTemplateUrls
-  GetPrepopulatedAndRecentlyVisitedTemplateURLs();
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  // Creates a provider that prepares search engine data and owns settings
+  // telemetry for the search settings screens. The returned object is expected
+  // to be owned by a settings UI controller for that controller's lifetime;
+  // see `search_engines::SearchEngineSettingsDataProvider`.
+  std::unique_ptr<search_engines::SearchEngineSettingsDataProvider>
+  CreateSearchEngineSettingsDataProvider();
 
   // Returns the Origin of the user's default search engine. If a default search
   // engine is set and its URL is valid, the Origin of that URL is returned.
@@ -506,6 +444,11 @@ class TemplateURLService final : public WebDataServiceConsumer,
   // provider is not available.
   GURL GenerateSearchURLForDefaultSearchProvider(
       const std::u16string& search_terms) const;
+
+  // Expands the `url_template` by replacing search terms placeholders with
+  // `search_terms`. Returns an invalid GURL if `url_template` is invalid.
+  GURL ExpandUrlTemplate(const std::string& url_template,
+                         const std::u16string& search_terms) const;
 
   // Returns search metadata if |url| is a valid Search URL.
   std::optional<SearchMetadata> ExtractSearchMetadata(const GURL& url) const;

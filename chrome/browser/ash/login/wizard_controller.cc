@@ -2232,7 +2232,9 @@ void WizardController::OnScreenExit(OobeScreenId screen,
   if (exit_reason == BaseScreen::kNotApplicable) {
     return;
   }
-  CHECK(current_screen_->screen_id() == screen, base::NotFatalUntil::M160);
+  // TODO(crbug.com/568836062): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(current_screen_->screen_id() == screen);
 
   GetLoginDisplayHost()->GetOobeMetricsHelper()->RecordScreenExit(screen,
                                                                   exit_reason);
@@ -3988,7 +3990,7 @@ void WizardController::OnLocationResolved(const Geoposition& position,
   // WizardController owns TimezoneProvider, so timezone request is silently
   // cancelled on destruction.
   GetTimezoneProvider()->RequestTimezone(
-      position, timeout - elapsed,
+      position, base::Time::Now(), timeout - elapsed,
       base::BindOnce(&WizardController::OnTimezoneResolved,
                      weak_factory_.GetWeakPtr()));
 }

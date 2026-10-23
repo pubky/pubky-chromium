@@ -4,6 +4,9 @@
 
 #include "chrome/browser/ui/webui/context_hub/context_hub_page_handler.h"
 
+#include <algorithm>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "base/check.h"
@@ -12,6 +15,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
@@ -29,7 +33,17 @@
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/host/context/glic_sharing_utils.h"  // nogncheck
+#include "chrome/browser/glic/host/glic.mojom.h"                  // nogncheck
+#include "chrome/browser/glic/public/glic_enabling.h"             // nogncheck
+#include "chrome/browser/glic/public/glic_instance.h"             // nogncheck
+#include "chrome/browser/glic/public/glic_invoke_options.h"       // nogncheck
+#include "chrome/browser/glic/public/glic_keyed_service.h"        // nogncheck
 #include "chrome/browser/ui/webui/context_hub/context_hub_tab_provider_desktop.h"
+#include "chrome/common/webui_url_constants.h"
+#include "components/tabs/public/tab_interface.h"  // nogncheck
+#include "content/public/browser/page_navigator.h"
+#include "net/base/url_util.h"  // nogncheck
 #endif
 #include "components/sessions/content/session_tab_helper.h"  // nogncheck
 
@@ -68,6 +82,39 @@ bool ContextHubPageHandler::TabProvider::OpenUrlsInTabGroup(
     base::span<const GURL> urls) {
   return false;
 }
+
+void ContextHubPageHandler::TabProvider::OpenTopic(
+    browser::context_hub::mojom::TopicIdOrUrlPtr topic_id_or_url) {}
+
+#if !BUILDFLAG(IS_ANDROID)
+GURL ContextHubPageHandler::TabProvider::ResolveTopicUrl(
+    const browser::context_hub::mojom::TopicIdOrUrlPtr& topic_id_or_url) {
+  if (!topic_id_or_url) {
+    if (mojo::IsInMessageDispatch()) {
+      mojo::ReportBadMessage("Missing topic_id_or_url");
+    }
+    return GURL();
+  }
+
+  GURL url;
+  if (topic_id_or_url->is_topic_url()) {
+    url = topic_id_or_url->get_topic_url();
+  } else if (topic_id_or_url->is_topic_id()) {
+    url = net::AppendQueryParameter(
+        GURL(chrome::kChromeUIContextHubURL).Resolve("topic_details"), "id",
+        topic_id_or_url->get_topic_id());
+  }
+
+  if (!url.is_valid() || !glic::IsContextHubTopicUrl(url)) {
+    if (mojo::IsInMessageDispatch()) {
+      mojo::ReportBadMessage("Invalid topic URL or host/path");
+    }
+    return GURL();
+  }
+
+  return url;
+}
+#endif
 
 void ContextHubPageHandler::OnAutoTodosChanged(
     base::span<const context_hub::AutoTodoEntry> entries) {
@@ -395,6 +442,17 @@ std::vector<browser::context_hub::mojom::ChatMessagePtr> ToMojoChatHistory(
   }
   return mojo_history;
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+// Returns the Glic service for `profile`, or null if Glic is not available for
+// it. Keeps the definition of "Glic is available" in one place.
+glic::GlicKeyedService* GetGlicServiceIfEnabled(Profile* profile) {
+  if (!glic::GlicEnabling::IsEnabledForProfile(profile)) {
+    return nullptr;
+  }
+  return glic::GlicKeyedService::Get(profile);
+}
+#endif
 
 }  // namespace
 
@@ -750,51 +808,70 @@ void ContextHubPageHandler::OpenUrlsInTabGroup(
     std::move(callback).Run(false);
     return;
   }
+
+  // Only open web pages. These URLs come from the renderer, and ultimately
+  // from browsing history, so they can carry schemes such as file:, chrome:
+  // or javascript: that must not be opened without an explicit user
+  // navigation. They are dropped rather than reported as a bad message, since
+  // a history-derived list can legitimately contain them. Filtering happens
+  // before capping so that rejected URLs don't count towards the limit.
   constexpr size_t kMaxUrlsToOpen = 10;
-  base::span<const GURL> capped_urls =
-      base::span(urls).first(std::min(urls.size(), kMaxUrlsToOpen));
-  bool success = tab_provider_->OpenUrlsInTabGroup(group_label, capped_urls);
+  std::vector<GURL> web_urls;
+  for (const GURL& url : urls) {
+    if (web_urls.size() == kMaxUrlsToOpen) {
+      break;
+    }
+    if (url.is_valid() && url.SchemeIsHTTPOrHTTPS()) {
+      web_urls.push_back(url);
+    }
+  }
+  if (web_urls.empty()) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  bool success = tab_provider_->OpenUrlsInTabGroup(group_label, web_urls);
   std::move(callback).Run(success);
 }
 
 namespace {
 
-// Converts journeys already resolved by the history backend into their Mojo
-// representation. No further lookups are needed: `GetAllJourneys` hands back
-// visits that carry their URL and title, and drops any journey it could not
-// fully resolve.
+// Converts a journey already resolved by the history backend into its Mojo
+// representation. No further lookups are needed: the history service hands
+// back visits that carry their URL and title, and drops any journey it could
+// not fully resolve.
+browser::context_hub::mojom::TopicPtr ToMojoTopic(
+    history::journeys::Journey journey) {
+  std::vector<browser::context_hub::mojom::TopicVisitPtr> visits;
+  visits.reserve(journey.visits.size());
+  for (history::journeys::JourneyVisit& visit : journey.visits) {
+    visits.push_back(browser::context_hub::mojom::TopicVisit::New(
+        std::move(visit.url), base::UTF16ToUTF8(visit.title)));
+  }
+
+  std::vector<browser::context_hub::mojom::TopicContinuationQueryPtr>
+      continuation_queries;
+  continuation_queries.reserve(journey.continuation_queries.size());
+  for (history::journeys::JourneyContinuationQuery& query :
+       journey.continuation_queries) {
+    continuation_queries.push_back(
+        browser::context_hub::mojom::TopicContinuationQuery::New(
+            std::move(query.title), std::move(query.prompt)));
+  }
+
+  return browser::context_hub::mojom::Topic::New(
+      /*id=*/std::move(journey.journey_id), std::move(journey.title),
+      journey.creation_time, std::move(journey.emoji),
+      std::move(journey.overview), std::move(journey.short_overview),
+      std::move(visits), std::move(continuation_queries));
+}
+
 std::vector<browser::context_hub::mojom::TopicPtr> ToMojoTopics(
-    const std::vector<history::journeys::Journey>& journeys) {
+    std::vector<history::journeys::Journey> journeys) {
   std::vector<browser::context_hub::mojom::TopicPtr> topics;
   topics.reserve(journeys.size());
-  for (const history::journeys::Journey& journey : journeys) {
-    auto topic = browser::context_hub::mojom::Topic::New();
-    topic->id = journey.journey_id;
-    topic->title = journey.title;
-    topic->creation_time = journey.creation_time;
-    topic->emoji = journey.emoji;
-    topic->overview = journey.overview;
-    topic->short_overview = journey.short_overview;
-
-    topic->visits.reserve(journey.visits.size());
-    for (const history::journeys::JourneyVisit& visit : journey.visits) {
-      auto mojo_visit = browser::context_hub::mojom::TopicVisit::New();
-      mojo_visit->url = visit.url;
-      mojo_visit->title = base::UTF16ToUTF8(visit.title);
-      topic->visits.push_back(std::move(mojo_visit));
-    }
-
-    topic->continuation_queries.reserve(journey.continuation_queries.size());
-    for (const history::journeys::JourneyContinuationQuery& query :
-         journey.continuation_queries) {
-      auto mojo_query =
-          browser::context_hub::mojom::TopicContinuationQuery::New();
-      mojo_query->title = query.title;
-      mojo_query->prompt = query.prompt;
-      topic->continuation_queries.push_back(std::move(mojo_query));
-    }
-
-    topics.push_back(std::move(topic));
+  for (history::journeys::Journey& journey : journeys) {
+    topics.push_back(ToMojoTopic(std::move(journey)));
   }
   return topics;
 }
@@ -816,8 +893,117 @@ void ContextHubPageHandler::GetTopics(GetTopicsCallback callback) {
       base::BindOnce(
           [](GetTopicsCallback callback,
              std::vector<history::journeys::Journey> journeys) {
-            std::move(callback).Run(ToMojoTopics(journeys));
+            std::move(callback).Run(ToMojoTopics(std::move(journeys)));
           },
           std::move(callback)),
       &topics_task_tracker_);
+}
+
+void ContextHubPageHandler::GetTopic(const std::string& id,
+                                     GetTopicCallback callback) {
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(profile_,
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  if (!history_service || id.empty()) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  // See `GetTopics()` for why the reply is safe to run on this handler.
+  history_service->GetJourney(
+      id,
+      base::BindOnce(
+          [](GetTopicCallback callback,
+             std::optional<history::journeys::Journey> journey) {
+            std::move(callback).Run(
+                journey ? ToMojoTopic(std::move(journey).value()) : nullptr);
+          },
+          std::move(callback)),
+      &topics_task_tracker_);
+}
+
+void ContextHubPageHandler::OpenTopic(
+    browser::context_hub::mojom::TopicIdOrUrlPtr topic_id_or_url) {
+  if (tab_provider_) {
+    tab_provider_->OpenTopic(std::move(topic_id_or_url));
+    return;
+  }
+#if !BUILDFLAG(IS_ANDROID)
+  // Fallback for when there is no tab provider: open the topic from the
+  // hosting WebContents instead.
+  GURL url = TabProvider::ResolveTopicUrl(topic_id_or_url);
+  if (!url.is_valid()) {
+    return;
+  }
+
+  if (web_contents_) {
+    content::OpenURLParams params(url, content::Referrer(),
+                                  WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                  ui::PAGE_TRANSITION_LINK,
+                                  /*is_renderer_initiated=*/false);
+    web_contents_->OpenURL(params, /*navigation_handle_callback=*/{});
+  }
+#endif
+}
+
+void ContextHubPageHandler::OpenGlicPanel(
+    const std::vector<std::string>& prompts) {
+#if !BUILDFLAG(IS_ANDROID)
+  glic::GlicKeyedService* glic_service = GetGlicServiceIfEnabled(profile_);
+  if (!glic_service || !web_contents_) {
+    return;
+  }
+  // The WebUI may be hosted outside of a tab (e.g. in a dialog), in which case
+  // there is no tab to bind the side panel to.
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents_);
+  if (!tab) {
+    return;
+  }
+
+  // Closing the panel keeps the instance alive (preserving the conversation)
+  // but stops it from showing, so this distinguishes "visible right now" from
+  // "closed but remembered".
+  glic::GlicInstance* instance = glic_service->GetInstanceForTab(tab);
+  const bool already_showing = instance && instance->IsShowing();
+
+  glic::GlicInvokeOptions options(
+      glic::Target(*tab), glic::mojom::InvocationSource::kContextHubTopics);
+  // The topic page offers three suggestion chips; clamp defensively since the
+  // list comes from the renderer.
+  constexpr size_t kMaxPrompts = 3;
+  base::span<const std::string> capped_prompts =
+      base::span(prompts).first(std::min(prompts.size(), kMaxPrompts));
+  options.prompts.assign(capped_prompts.begin(), capped_prompts.end());
+  // The page supplies its own topic-specific suggestions, so suppress the
+  // generic Zero State Suggestions to avoid two competing suggestion UIs. If
+  // the page had none to offer (e.g. a topic with no title), fall back to ZSS
+  // rather than showing a panel with no suggestions at all.
+  options.disable_zss = !options.prompts.empty();
+
+  if (already_showing) {
+    // The invoke is still delivered to the web client, which replaces the
+    // suggestion chips with this topic's. Since the user is already looking
+    // at the panel, refreshing it should not steal focus from the topic page,
+    // and should not fail if another invocation happens to be in flight.
+    options.focus_on_show = false;
+    options.supersede_if_in_progress = true;
+  }
+
+  // The FRE is rendered inside the panel, so the panel opens either way. But
+  // until the user consents, delivery of `prompts` is blocked on FRE
+  // completion, and the invocation's default watchdog is only one minute;
+  // far too short to read and accept a consent screen. Without a longer
+  // timeout the invocation is abandoned and the topic suggestions never
+  // arrive, even though the user did eventually consent.
+  //
+  // TODO(crbug.com/564810188): This only narrows the window. If the user
+  // abandons the FRE the invocation still fails silently, because the page has
+  // no error surface and no manual affordance to open Glic.
+  if (!glic::GlicEnabling::HasConsentedForProfile(profile_)) {
+    options.timeout = base::Minutes(5);
+  }
+
+  glic_service->Invoke(std::move(options));
+#endif
 }

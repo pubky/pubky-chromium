@@ -91,6 +91,11 @@ ActorKeyedServiceAndroid::ActorKeyedServiceAndroid(ActorKeyedService* service)
       service_->AddMessageTriggerTaskStoppedCallback(base::BindRepeating(
           &ActorKeyedServiceAndroid::OnMessageTriggerTaskStopped,
           base::Unretained(this)));
+
+  pending_task_count_subscription_ =
+      service_->AddPendingTaskCountChangedCallback(base::BindRepeating(
+          &ActorKeyedServiceAndroid::OnPendingTaskCountChanged,
+          base::Unretained(this)));
 }
 
 ActorKeyedServiceAndroid::~ActorKeyedServiceAndroid() {
@@ -148,7 +153,7 @@ void ActorKeyedServiceAndroid::StopTask(int32_t task_id, int32_t stop_reason) {
                      static_cast<ActorTask::StoppedReason>(stop_reason));
 }
 
-void ActorKeyedServiceAndroid::SetPreparedBackgroundTab(
+void ActorKeyedServiceAndroid::SetTabReady(
     TabAndroid* tab,
     const std::string& glic_trigger_message_id) {
   service_->NotifyBackgroundTabReady(tab, glic_trigger_message_id);
@@ -184,6 +189,25 @@ void ActorKeyedServiceAndroid::EnsureForegroundServiceStarted(
   JNIEnv* env = AttachCurrentThread();
   Java_ActorKeyedService_ensureForegroundServiceStarted(
       env, java_obj_, glic_trigger_message_id);
+}
+
+void ActorKeyedServiceAndroid::OnPendingTaskCountChanged(size_t pending_count) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_ActorKeyedService_onPendingTaskCountChanged(
+      env, java_obj_, static_cast<int32_t>(pending_count));
+}
+
+int32_t ActorKeyedServiceAndroid::GetPendingTasksCount() {
+  return static_cast<int32_t>(service_->GetPendingTasksCount());
+}
+
+void ActorKeyedServiceAndroid::AddPendingTask(const std::string& context_id) {
+  service_->AddPendingTask(context_id);
+}
+
+void ActorKeyedServiceAndroid::RemovePendingTask(
+    const std::string& context_id) {
+  service_->RemovePendingTask(context_id);
 }
 
 void CreateBackgroundTabForTask(

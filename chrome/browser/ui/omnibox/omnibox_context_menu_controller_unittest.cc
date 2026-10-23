@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/test/metrics/histogram_tester.h"
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -450,6 +451,26 @@ TEST_F(OmniboxContextMenuControllerTest,
   // Tool not present in tool_configs uses empty ImageModel (zero value).
   EXPECT_EQ(
       controller()->GetIconForTool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN),
+      ui::ImageModel());
+
+  // Adding tool_config with IMAGE_CREATE resolves to kImageCreateIcon.
+  omnibox::ToolConfig image_gen_config;
+  image_gen_config.set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  image_gen_config.mutable_icon()->set_icon_id(
+      omnibox::IconResourceIds::IMAGE_CREATE);
+  state.tool_configs.push_back(image_gen_config);
+  controller()->OnGetInputState(state);
+
+  ui::ImageModel expected_image_gen_icon =
+      ui::ImageModel::FromVectorIcon(kImageCreateIcon, ui::kColorMenuIcon,
+                                     ui::SimpleMenuModel::kDefaultIconSize);
+  EXPECT_EQ(
+      controller()->GetIconForTool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN),
+      expected_image_gen_icon);
+
+  // Unconfigured tool continues to return an empty ImageModel.
+  EXPECT_EQ(
+      controller()->GetIconForTool(omnibox::ToolMode::TOOL_MODE_DEEP_BROWSE),
       ui::ImageModel());
 }
 
@@ -1252,4 +1273,59 @@ TEST_F(OmniboxContextMenuControllerTest, ShareTabsTooltip_ParamDisabled) {
   EXPECT_EQ(controller()->GetTooltipForCommandId(
                 IDC_OMNIBOX_CONTEXT_SHARED_TABS_SUBMENU),
             u"");
+}
+
+TEST_F(OmniboxContextMenuControllerTest,
+       ExecuteCommand_TabSelectionRecordsTabPickerTelemetry) {
+  base::HistogramTester histogram_tester;
+
+  std::vector<OmniboxContextMenuController::TabInfo> mock_tabs;
+  OmniboxContextMenuController::TabInfo tab0;
+  tab0.tab_id = 1;
+  tab0.title = u"Tab 1";
+  tab0.url = GURL("https://example.com/1");
+  tab0.is_active_tab = false;
+  mock_tabs.push_back(tab0);
+
+  OmniboxContextMenuController::TabInfo tab1;
+  tab1.tab_id = 2;
+  tab1.title = u"Tab 2";
+  tab1.url = GURL("https://example.com/2");
+  tab1.is_active_tab = true;
+  mock_tabs.push_back(tab1);
+
+  controller()->SetMockTabs(mock_tabs);
+  controller()->RebuildMenu();
+
+  // Execute command on tab 1 (command ID: 33000 + 1).
+  controller()->ExecuteCommand(33000 + 1, 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.TabPicker.SelectedTabIsActive.Omnibox", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.TabPicker.SelectedTabPosition.Omnibox", 1, 1);
+}
+
+TEST_F(OmniboxContextMenuControllerTest,
+       ExecuteCommand_TabSelectionWithoutActiveTabOmitsIsActiveMetric) {
+  base::HistogramTester histogram_tester;
+
+  std::vector<OmniboxContextMenuController::TabInfo> mock_tabs;
+  OmniboxContextMenuController::TabInfo tab0;
+  tab0.tab_id = 1;
+  tab0.title = u"Tab 1";
+  tab0.url = GURL("https://example.com/1");
+  tab0.is_active_tab = false;
+  mock_tabs.push_back(tab0);
+
+  controller()->SetMockTabs(mock_tabs);
+  controller()->RebuildMenu();
+
+  // Execute command on tab 0 (command ID: 33000 + 0).
+  controller()->ExecuteCommand(33000 + 0, 0);
+
+  histogram_tester.ExpectTotalCount(
+      "ContextualSearch.TabPicker.SelectedTabIsActive.Omnibox", 0);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.TabPicker.SelectedTabPosition.Omnibox", 0, 1);
 }

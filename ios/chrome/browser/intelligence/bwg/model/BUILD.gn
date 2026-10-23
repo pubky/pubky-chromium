@@ -52,6 +52,7 @@ source_set("model") {
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/bwg/metrics",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
+    "//ios/chrome/browser/intelligence/bwg/utils:live_utils",
     "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
@@ -67,6 +68,7 @@ source_set("model") {
     "//ios/chrome/common/ui/util",
     "//ios/public/provider/chrome/browser/bwg:gemini_api",
     "//ios/web/public",
+    "//net",
   ]
   public_deps = [ "//base" ]
   frameworks = [
@@ -113,6 +115,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/intelligence/bwg/utils:availability",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/intelligence/bwg/utils:feature_availability",
+    "//ios/chrome/browser/intelligence/bwg/utils:live_utils",
     "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/persist_tab_context/model",
@@ -468,5 +471,6 @@ source_set("unit_tests") {
     "//ios/web/public/test",
     "//testing/gtest",
     "//third_party/ocmock",
+    "//url",
   ]
 }

@@ -70,6 +70,11 @@ class CORE_EXPORT ArrayBufferContents {
     kCrash,
   };
 
+  enum class MaxAllocationSizePolicy {
+    kNormal,
+    kAllowGigaAllocations,
+  };
+
   ArrayBufferContents() = default;
   ArrayBufferContents(size_t num_elements,
                       size_t element_byte_size,
@@ -94,10 +99,16 @@ class CORE_EXPORT ArrayBufferContents {
                       AllocationFailureBehavior allocation_failure_behavior =
                           AllocationFailureBehavior::kInvalid);
 
+  // The resulting contents is backed by `shared_memory_region`; `offset` is
+  // down to a multiple of the VM allocation granularity. If `sharing_type`
+  // is `kShared`, creates a backing store for a `SharedArrayBuffer` that
+  // uses a mapping from the passed in `shared_memory_region`; otherwise,
+  // creates a backing store for a regular `ArrayBuffer`.
   ArrayBufferContents(
       const base::subtle::PlatformSharedMemoryRegion& shared_memory_region,
       uint64_t offset,
-      size_t length);
+      size_t length,
+      SharingType is_shared);
 
   ArrayBufferContents(ArrayBufferContents&&) = default;
 
@@ -161,7 +172,9 @@ class CORE_EXPORT ArrayBufferContents {
   void ShareNonSharedForInternalUse(ArrayBufferContents& other);
   void CopyTo(ArrayBufferContents& other);
 
-  static void* AllocateMemoryOrNull(size_t, InitializationPolicy);
+  static void* AllocateMemoryOrNull(size_t,
+                                    InitializationPolicy,
+                                    MaxAllocationSizePolicy);
   static void FreeMemory(void*);
 
  private:

@@ -1154,6 +1154,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_SearchEngines) {
   RunTest("settings/search_engines_page_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, SearchMetricsRecorder) {
+  RunTest("settings/search_metrics_recorder_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchPageIndex) {
   RunTest("settings/search_page_index_test.js", "mocha.run()");
 }
@@ -1909,6 +1913,11 @@ IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListEmbargoedOrigin) {
 IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListCookiesExceptionTypes) {
   RunTest("settings/site_list_test.js",
           "runMochaSuite('SiteListCookiesExceptionTypes')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListPopulatedWhileHidden) {
+  RunTest("settings/site_list_test.js",
+          "runMochaSuite('SiteListPopulatedWhileHidden')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, SiteListSearchTests) {

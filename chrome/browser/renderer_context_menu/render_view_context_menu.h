@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_RENDERER_CONTEXT_MENU_RENDER_VIEW_CONTEXT_MENU_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -81,6 +82,10 @@ namespace gfx {
 class Point;
 }
 
+namespace indigo {
+class IndigoImageReplacementManager;
+}
+
 namespace blink {
 namespace mojom {
 class MediaPlayerAction;
@@ -126,6 +131,8 @@ class RenderViewContextMenu
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kGlicShareImageMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOpenLinkInSplitMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kRegionSearchItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAskGoogleAboutThisPageItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kContextualTasksSubmenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSearchForImageItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSearchForVideoFrameItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kVideoFrameSubmenuItem);
@@ -238,6 +245,21 @@ class RenderViewContextMenu
 #if BUILDFLAG(ENABLE_COMPOSE)
   virtual ChromeComposeClient* GetChromeComposeClient() const;
 #endif
+
+  struct IndigoReplacementInfo {
+    raw_ptr<indigo::IndigoImageReplacementManager> manager = nullptr;
+    raw_ptr<content::RenderFrameHost> subframe_rfh = nullptr;
+    GURL image_url;
+  };
+
+  // Returns information about the loaded Indigo replacement (manager, subframe
+  // RenderFrameHost, and generated image URL) if the context menu was invoked
+  // on an image with a completed Indigo replacement, or std::nullopt otherwise.
+  virtual std::optional<IndigoReplacementInfo> GetIndigoReplacementInfo() const;
+
+  // Returns the URL of the Indigo replacement image if the context menu was
+  // invoked on an image with a completed Indigo replacement, or an empty GURL.
+  GURL GetIndigoReplacementImageURL() const;
 
   // RenderViewContextMenuBase:
   // The |initiator| parameter is the origin that supplied the URL being
@@ -466,9 +488,6 @@ class RenderViewContextMenu
   // the original page being distilled.
   content::WebContents* GetWebContentsForDataControls() const;
 
-  // Returns the URL of the Indigo replacement image if the context menu was
-  // invoked on an image with an active Indigo replacement, or an empty GURL.
-  virtual GURL GetIndigoReplacementImageURL() const;
 
   // Returns a list of registered ProtocolHandlers that can handle the clicked
   // on URL.
@@ -555,6 +574,9 @@ class RenderViewContextMenu
 
   // Inspect sub-menu handling.
   ui::SimpleMenuModel inspect_submenu_model_;
+
+  // Contextual tasks sub-menu handling.
+  ui::SimpleMenuModel contextual_tasks_submenu_model_;
 
   // Video frame sub-menu handling.
   ui::SimpleMenuModel video_frame_submenu_model_;

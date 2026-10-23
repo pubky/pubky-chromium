@@ -17,8 +17,6 @@
 #import "testing/platform_test.h"
 
 @interface GeminiContainerUIStateManager (Testing)
-@property(nonatomic, readonly) ios::provider::GeminiClientMode processingStatus;
-@property(nonatomic, readonly) ios::provider::GeminiViewMode viewMode;
 @property(nonatomic, assign) BOOL hasConversation;
 @property(nonatomic, assign) GeminiContainerUIState currentUIState;
 @end
@@ -50,11 +48,14 @@ class GeminiContainerUIStateManagerTest : public PlatformTest {
       : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME),
         state_manager_([[GeminiContainerUIStateManager alloc] init]),
         delegate_([[FakeGeminiContainerUIStateManagerDelegate alloc] init]) {
+    scoped_feature_list_.InitWithFeatures(
+        {kAssistantContainer, kIOSGeminiBottomSheetMigration}, {});
     state_manager_.delegate = delegate_;
   }
 
  protected:
   base::test::TaskEnvironment task_environment_;
+  base::test::ScopedFeatureList scoped_feature_list_;
   GeminiContainerUIStateManager* state_manager_;
   FakeGeminiContainerUIStateManagerDelegate* delegate_;
 };
@@ -108,6 +109,7 @@ TEST_F(GeminiContainerUIStateManagerTest, TestUIStateFactoryMethods) {
 // Tests that initial state properties are correctly set upon initialization.
 TEST_F(GeminiContainerUIStateManagerTest, TestInitialProperties) {
   EXPECT_EQ(ios::provider::GeminiViewMode::kUnknown, state_manager_.viewMode);
+  EXPECT_FALSE([state_manager_ isInGeminiLiveMode]);
   EXPECT_EQ(ios::provider::GeminiClientMode::kUnknown,
             state_manager_.processingStatus);
   EXPECT_EQ(AssistantContainerDetent::kMinimized,
@@ -127,6 +129,7 @@ TEST_F(GeminiContainerUIStateManagerTest, TestInitialState) {
   EXPECT_TRUE(delegate_.lastUIState.zeroStateVisible);
   EXPECT_FALSE(state_manager_.hasConversation);
   EXPECT_EQ(ios::provider::GeminiViewMode::kFloaty, state_manager_.viewMode);
+  EXPECT_FALSE([state_manager_ isInGeminiLiveMode]);
   EXPECT_EQ(ios::provider::GeminiClientMode::kDormant,
             state_manager_.processingStatus);
 }
@@ -137,6 +140,7 @@ TEST_F(GeminiContainerUIStateManagerTest, TestSwitchToLiveMode) {
   [state_manager_ setupInitialUIState];
   [delegate_ reset];
   [state_manager_ transitionToMode:ios::provider::GeminiViewMode::kLive];
+  EXPECT_TRUE([state_manager_ isInGeminiLiveMode]);
   EXPECT_EQ(1, delegate_.changeCount);
   EXPECT_EQ(AssistantContainerDetent::kMinimized, delegate_.lastUIState.detent);
   EXPECT_FALSE(delegate_.lastUIState.hasGrabber);

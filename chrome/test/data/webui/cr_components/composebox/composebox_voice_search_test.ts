@@ -108,6 +108,7 @@ suite('ComposeboxVoiceSearch', () => {
       voiceSearchCoherenceAnySearchboxExperimentEnabled: false,
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
       isSystemVoiceSearchEnabled: false,
+      androidSpeechRecognition: false,
       composeboxSource: 'NTP_REALBOX',
     });
 
@@ -1257,6 +1258,7 @@ suite('ComposeboxVoiceSearch', () => {
               ],
               suggestionGroupsMap: {},
               smartComposeInlineHint: '',
+              showAimActivityLink: false,
               sequenceId: 0,
             },
           });

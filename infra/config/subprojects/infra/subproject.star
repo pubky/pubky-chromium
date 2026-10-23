@@ -79,6 +79,7 @@ builders.builder(
     triggered_by = [],
     pool = "luci.chromium.ci",
     builderless = True,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         console_view = "infra",
         category = "autosharder",
@@ -120,6 +121,7 @@ try_.builder(
     executable = "recipe:chromium/autosharder_test",
     pool = "luci.chromium.try",
     builderless = True,
+    ssd = True,
     console_view_entry = consoles.console_view_entry(
         console_view = "infra",
         category = "autosharder",

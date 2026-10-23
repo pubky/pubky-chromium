@@ -52,6 +52,9 @@ BASE_FEATURE(kHasContentUri, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kMaximumWindowForGestureNavDetection,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPointerLockMouseDensityCompensation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kPointerLockMouseScaling, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRefactorMinWidthContextOverride,
@@ -76,6 +79,6 @@ BASE_FEATURE(kAndroidTouchpadOverscrollHistoryNavigation,
 BASE_FEATURE(kUpdatePaddingForDisplayCalculation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAvoidPerContextColorProviders, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAvoidPerContextColorProviders, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace ui

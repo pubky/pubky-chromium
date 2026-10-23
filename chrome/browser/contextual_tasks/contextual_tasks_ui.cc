@@ -110,6 +110,8 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #else
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/lens/lens_query_flow_router.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
@@ -397,8 +399,7 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   std::optional<lens::LensOverlayInvocationSource> invocation_source;
   if (auto* browser = GetBrowser()) {
     if (auto* active_tab = browser->GetActiveTabInterface()) {
-      if (auto* controller = LensSearchController::FromTabWebContents(
-              active_tab->GetContents())) {
+      if (auto* controller = LensSearchController::From(active_tab)) {
         invocation_source = controller->invocation_source();
       }
     }
@@ -417,6 +418,8 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   // mid-session, avoiding a jarring user experience.
   is_contextual_tasks_eligible_on_init_ =
       contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
+  is_signed_in_on_page_load_ =
+      ui_service_ && ui_service_->IsSignedInToBrowserWithValidCredentials();
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   auto bindings = web_ui->GetBindings();
@@ -631,7 +634,8 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
            contextual_tasks::
                GetContextualTasksAskGTooltipSessionImpressionCap());
   dict.Set("askGCoBrowseEnabled", omnibox::kAskGCoBrowse.Get());
-  dict.Set("clearAllInputsWhenSubmittingQuery", true);
+  dict.Set("clearAllInputsWhenSubmittingQuery",
+           ShouldClearAllInputsOnSubmit(std::nullopt));
   dict.Set("contextualTasksSidePanelRearchitectureEnabled",
            contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled());
 
@@ -670,7 +674,17 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
   dict.Set("windowTrackingEnabled",
            contextual_tasks::GetIsContextualTasksWindowTrackingEnabled());
   dict.Set("supportsLensButtonInComposebox", !BUILDFLAG(IS_ANDROID));
-  dict.Set("isSystemVoiceSearchEnabled", !!BUILDFLAG(IS_ANDROID));
+  // Android delegates voice search to the platform recognition activity.
+  // Large-screen Android can opt into the in-panel WebUI voice search UI
+  // instead; phone Clank always stays on the platform path.
+  const bool use_webui_voice_search =
+      contextual_tasks::IsAndroidLargeFormFactor() &&
+      contextual_tasks::
+          GetIsContextualTasksWebUiVoiceSearchDesktopAndroidEnabled();
+  dict.Set("isSystemVoiceSearchEnabled",
+           !!BUILDFLAG(IS_ANDROID) && !use_webui_voice_search);
+  // Drives audio wave simulation in the WebUI voice search UI in side panel.
+  dict.Set("androidSpeechRecognition", use_webui_voice_search);
   dict.Set("isUserFeedbackAllowed", IsUserFeedbackAllowed(profile));
   dict.Set("enableComposeboxJumpFix",
            contextual_tasks::GetEnableComposeboxJumpFix());
@@ -812,6 +826,9 @@ void ContextualTasksUI::CreatePageHandler(
     PushTaskDetailsToPage(task_id_, url,
                           /*replace_navigation_entry=*/true);
   }
+  if (GetThreadTitle().has_value()) {
+    page_->SetThreadTitle(*GetThreadTitle());
+  }
   OnInitComplete();
 }
 
@@ -874,13 +891,13 @@ void ContextualTasksUI::SetThreadId(std::optional<std::string> id) {
 }
 
 const std::optional<std::string>& ContextualTasksUI::GetThreadTitle() {
-  return thread_title_;
+  return ContextualTasksUIBase::GetThreadTitle();
 }
 
 void ContextualTasksUI::SetThreadTitle(std::optional<std::string> title) {
-  thread_title_ = title;
+  ContextualTasksUIBase::SetThreadTitle(std::move(title));
   if (page_) {
-    page_->SetThreadTitle(thread_title_.value_or(std::string()));
+    page_->SetThreadTitle(GetThreadTitle().value_or(std::string()));
   }
 }
 
@@ -908,8 +925,10 @@ bool ContextualTasksUI::IsCoBrowseOmniboxAction() const {
 }
 
 void ContextualTasksUI::SetIsAiPage(bool is_ai_page) {
-  if (page_) {
-    page_->OnAiPageStatusChanged(is_ai_page);
+  ContextualTasksUIBase::SetIsAiPage(is_ai_page);
+
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    return;
   }
 
   // When AI page is first loaded, close the Lens overlay if it's open,
@@ -1191,6 +1210,16 @@ void ContextualTasksUI::MoveTaskUiToNewTab() {
                                   GetInnerFrameUrl());
 }
 
+void ContextualTasksUI::ShowThreadHistory() {
+  if (page_handler_) {
+    lens::ClientToAimMessage message;
+    message.mutable_open_threads_view()->mutable_payload();
+    PostAimMessage(message);
+    return;
+  }
+  ContextualTasksUIBase::ShowThreadHistory();
+}
+
 void ContextualTasksUI::PostAimMessage(
     const lens::ClientToAimMessage& message) {
   CHECK(page_handler_);
@@ -1271,6 +1300,21 @@ void ContextualTasksUI::OnContextRetrievedForActiveTab(
   bool is_tab_already_in_context =
       context &&
       context->ContainsURL(last_committed_url, url_duplication_helper.get());
+#if !BUILDFLAG(IS_ANDROID)
+  if (is_tab_already_in_context) {
+    if (auto* controller =
+            LensSearchController::FromTabWebContents(tab->GetContents())) {
+      if (controller->lens_overlay_controller() &&
+          controller->lens_overlay_controller()->HasRegionSelection() &&
+          controller->query_router() &&
+          controller->query_router()
+              ->overlay_tab_context_file_token()
+              .has_value()) {
+        is_tab_already_in_context = false;
+      }
+    }
+  }
+#endif
   if (!is_tab_already_in_context && composebox_handler_) {
     const auto* current_suggestion =
         auto_suggestion_manager_->GetCurrentSuggestion();
@@ -1629,6 +1673,10 @@ ContextualTasksUI::GetPageRemote() {
   return page_;
 }
 
+contextual_tasks_toolbar::mojom::Page*
+ContextualTasksUI::GetToolbarPageRemote() {
+  return ContextualTasksUIBase::GetToolbarPageRemote();
+}
 
 ContextualTasksUI::FrameNavObserver::FrameNavObserver(
     content::WebContents* web_contents,
@@ -2149,6 +2197,8 @@ void ContextualTasksUI::UpdateZoom() {
 
 void ContextualTasksUI::WebUIPrimaryPageChanged(content::Page& page) {
   ui::MojoWebUIController::WebUIPrimaryPageChanged(page);
+  is_signed_in_on_page_load_ =
+      ui_service_ && ui_service_->IsSignedInToBrowserWithValidCredentials();
   // Update zoom when WebUI is loaded.
   UpdateZoom();
 }

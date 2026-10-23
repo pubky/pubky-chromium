@@ -779,9 +779,13 @@ bool GlicGlobalEnabling::IsSystemRequirementMet() const {
             switches::kTestType)) {
       ui::DeviceFormFactor form_factor = ui::GetDeviceFormFactor();
 
+      // GetDeviceFormFactor() reports an unfolded foldable as a tablet, so
+      // check is_foldable() directly to allow foldables in either posture
+      // without kGlicAndroidTablet.
       bool form_factor_allowed =
           form_factor == ui::DEVICE_FORM_FACTOR_PHONE ||
           form_factor == ui::DEVICE_FORM_FACTOR_FOLDABLE ||
+          base::android::device_info::is_foldable() ||
           form_factor == ui::DEVICE_FORM_FACTOR_DESKTOP ||
           (form_factor == ui::DEVICE_FORM_FACTOR_TABLET &&
            base::FeatureList::IsEnabled(features::kGlicAndroidTablet));
@@ -1255,7 +1259,7 @@ bool GlicEnabling::IsContextualMenuItemEnabled(
 }
 
 // static
-bool GlicEnabling::IsSelectionPromptEnabledForProfile(Profile* profile) {
+bool GlicEnabling::IsInlineCueEnabledForProfile(Profile* profile) {
   return IsEnabledForProfile(profile) &&
          base::FeatureList::IsEnabled(features::kGlicSelectionPrompt);
 }

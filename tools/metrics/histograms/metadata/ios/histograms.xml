@@ -66,8 +66,11 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.ThenChange(//ios/chrome/browser/contextual_panel/model/contextual_panel_item_type.h:ContextualPanelItemType) -->
 
 <variants name="IOSFrameType">
-  <variant name="MainFrame" summary="Main frame of the webpage"/>
-  <variant name="SubFrame" summary="Subframes (iframes) of the webpage"/>
+  <variant name="Aggregate"
+      summary="aggregated across all frames on the webpage"/>
+  <variant name="MainFrame" summary="isolated to the main frame"/>
+  <variant name="SubFrame"
+      summary="isolated to each subframe (iframe) on the webpage"/>
 </variants>
 
 <variants name="IOSSaveToDriveQueryTypeVariant">
@@ -230,7 +233,9 @@ chromium-metrics-reviews@google.com.
   <variant name="DefaultBrowserRemindMeLater"
       summary="Remind me later for default browser."/>
   <variant name="DockingPromo" summary="Docking Promo."/>
+  <variant name="EphemeralTheme" summary="Home (NTP) ephemeral theme promo."/>
   <variant name="FullscreenSignin" summary="Fullscreen sign-in promo."/>
+  <variant name="LevelUp" summary="Level Up promo"/>
   <variant name="MadeForIOSDefaultBrowser"
       summary="&quot;Made For iOS&quot; default browser promo."/>
   <variant name="PostDefaultAbandonment"
@@ -350,6 +355,31 @@ chromium-metrics-reviews@google.com.
     <variant name="LongPress" summary="long pressed"/>
     <variant name="OneTapped" summary="tapped"/>
   </token>
+</histogram>
+
+<histogram name="IOS.AppBar.AssistantButtonDefaultStateOnLoad"
+    enum="IOSAppBarAssistantButtonState" expires_after="2027-03-07">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-meridian@google.com</owner>
+  <summary>
+    The state that the assistant button in the App Bar would show if the user
+    hadn't chosen an entry point in the menu shown when long pressing it. Only
+    recorded for users who chose an entry point, once per App Bar
+    initialization, along with IOS.AppBar.AssistantButtonStateOnLoad and
+    IOS.AppBar.AssistantButtonPreferredStateOnLoad.
+  </summary>
+</histogram>
+
+<histogram name="IOS.AppBar.AssistantButtonPreferredStateOnLoad"
+    enum="IOSAppBarAssistantButtonPreferredState" expires_after="2027-03-07">
+  <owner>gambard@chromium.org</owner>
+  <owner>bling-meridian@google.com</owner>
+  <summary>
+    The entry point chosen by the user for the assistant button in the App Bar,
+    in the menu shown when long pressing it, or Default if the user didn't
+    choose any. Recorded once per App Bar initialization, along with
+    IOS.AppBar.AssistantButtonStateOnLoad.
+  </summary>
 </histogram>
 
 <histogram name="IOS.AppBar.AssistantButtonStateOnLoad"
@@ -2636,17 +2666,28 @@ chromium-metrics-reviews@google.com.
     interactions throughout a user's visit to a page, capturing the 98th
     percentile latency (discarding outliers).
 
-    Note that this histogram captures INP isolated to the {FrameType} and does
-    not aggregate interactions across all frames on the page.
+    This histogram records the INP {FrameType}.
+
+    Measured via the JavaScript PerformanceObserver API, where event timing
+    entries have a minimum duration threshold of 16ms. As a result, interactions
+    under 16ms are not reported individually, though
+    performance.interactionCount still counts them, so the INP calculation can
+    assume that missing interactions are at WebKit's 8ms duration granularity.
 
     Recorded when the page is navigated away from or the web state is destroyed,
-    for each {FrameType} where user interactions occurred.
+    provided user interactions were observed. This histogram only receives data
+    from users on iOS 26.2 and later due to WebKit Event Timing API
+    requirements.
+
+    The aggregate variant is equivalent to Blink's
+    PageLoad.InteractiveTiming.UserInteractionLatency.HighPercentile2.MaxEventDuration
+    but with less precision due to PerformanceObserver.
   </summary>
   <token key="FrameType" variants="IOSFrameType"/>
 </histogram>
 
 <histogram name="IOS.Fullscreen.State" enum="CrFullscreenState"
-    expires_after="2026-10-11">
+    expires_after="2027-10-11">
   <owner>joemerramos@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -4245,6 +4286,15 @@ chromium-metrics-reviews@google.com.
   <summary>Records the way the app was launched on iOS.</summary>
 </histogram>
 
+<histogram name="IOS.LevelUpPromo.Action" enum="PromoStyleSheetAction"
+    expires_after="2027-09-01">
+  <owner>zijingl@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <summary>
+    Logs user button actions on the Level Up promo onboarding screen.
+  </summary>
+</histogram>
+
 <histogram name="IOS.LinkToText.ShouldOfferResult"
     enum="LinkToTextShouldOfferResult" expires_after="2023-09-03">
   <owner>tmartino@chromium.org</owner>
@@ -4956,6 +5006,36 @@ chromium-metrics-reviews@google.com.
   <owner>olivierrobin@chromium.org</owner>
   <owner>bling-squid-squad@google.com</owner>
   <summary>Outcome of the MiniMap screen.</summary>
+</histogram>
+
+<histogram name="IOS.MostVisited.AIM.ImpressionIndex" units="index"
+    expires_after="2027-01-09">
+  <owner>ericekey@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <summary>
+    Records the index where the AIM tile is displayed within the Most Visited
+    Tiles on the New Tab Page.
+  </summary>
+</histogram>
+
+<histogram name="IOS.MostVisited.AIM.MovedToIndex" units="index"
+    expires_after="2027-01-09">
+  <owner>ericekey@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <summary>
+    Records the destination index when the user moves (via drag-and-drop or
+    accessibility custom action) the AIM tile within the Most Visited Tiles.
+  </summary>
+</histogram>
+
+<histogram name="IOS.MostVisited.AIM.TapIndex" units="index"
+    expires_after="2027-01-09">
+  <owner>ericekey@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <summary>
+    Records the index of the AIM tile when tapped by the user within the Most
+    Visited Tiles.
+  </summary>
 </histogram>
 
 <histogram name="IOS.MostVisited.PinnedSiteForm.{FormType}"
@@ -8701,6 +8781,37 @@ chromium-metrics-reviews@google.com.
     has changed to a nil or empty URL. Recorded on the KVO of the URL of the
     WKWebView. This histogram was expired between 2026-03-30 and 2026-06-02,
     data may be missing.
+  </summary>
+</histogram>
+
+<histogram name="IOS.WebExtension.LoadDelay" units="ms"
+    expires_after="2027-09-20">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    The delay taken to load the web extension. Recorded when the extension
+    finishes loading in ExtensionService.
+  </summary>
+</histogram>
+
+<histogram name="IOS.WebExtension.LoadSuccess" enum="BooleanSuccess"
+    expires_after="2027-09-20">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    Whether loading of the web extension succeeded. Recorded when the extension
+    finishes loading in ExtensionService.
+  </summary>
+</histogram>
+
+<histogram name="IOS.WebExtension.ReadyDelay" units="ms"
+    expires_after="2027-09-20">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    The delay taken to declare ExtensionService ready. Recorded when
+    ExtensionService is declared ready (either after loading finishes or after
+    timeout).
   </summary>
 </histogram>
 

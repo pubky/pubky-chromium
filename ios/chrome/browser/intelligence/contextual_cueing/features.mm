@@ -11,6 +11,15 @@ namespace contextual_cueing {
 BASE_FEATURE(kGeminiContextualSuggestionsCues,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const char kGeminiContextualSuggestionsCuesIgnoreThresholdsParam[] =
+    "ignore_contextual_cueing_thresholds";
+
+BASE_FEATURE_PARAM(bool,
+                   kGeminiContextualSuggestionsCuesIgnoreThresholds,
+                   &kGeminiContextualSuggestionsCues,
+                   kGeminiContextualSuggestionsCuesIgnoreThresholdsParam,
+                   false);
+
 const char kGeminiContextualSuggestionsCuesOnDeviceClassifierParam[] =
     "enable_on_device_classifier";
 
@@ -54,7 +63,40 @@ bool IsGeminiContextualSuggestionsCuesEnabled() {
   return base::FeatureList::IsEnabled(kGeminiContextualSuggestionsCues);
 }
 
+bool IsIgnoreContextualCueingThresholdsEnabled() {
+  return IsGeminiContextualSuggestionsCuesEnabled() &&
+         kGeminiContextualSuggestionsCuesIgnoreThresholds.Get();
+}
+
+BASE_FEATURE(kGeminiContextualSuggestionsCuesUiMode,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kGeminiContextualSuggestionsCuesUiModeParam[] = "ui_mode";
+
+constexpr base::FeatureParam<ContextualCueUiMode>::Option
+    kGeminiContextualSuggestionsCuesUiModeOptions[] = {
+        {ContextualCueUiMode::kInfobarThenChip, "infobar_then_chip"},
+        {ContextualCueUiMode::kInfobarOnly, "infobar_only"},
+        {ContextualCueUiMode::kOmniboxChipOnly, "omnibox_chip_only"}};
+
+constexpr base::FeatureParam<ContextualCueUiMode>
+    kGeminiContextualSuggestionsCuesUiModeOption{
+        &kGeminiContextualSuggestionsCuesUiMode,
+        kGeminiContextualSuggestionsCuesUiModeParam,
+        ContextualCueUiMode::kInfobarThenChip,
+        &kGeminiContextualSuggestionsCuesUiModeOptions};
+
+ContextualCueUiMode GetContextualCueUiMode() {
+  if (base::FeatureList::IsEnabled(kGeminiContextualSuggestionsCuesUiMode)) {
+    return kGeminiContextualSuggestionsCuesUiModeOption.Get();
+  }
+  return ContextualCueUiMode::kInfobarThenChip;
+}
+
 bool IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled() {
+  if (IsIgnoreContextualCueingThresholdsEnabled()) {
+    return true;
+  }
   return IsGeminiContextualSuggestionsCuesEnabled() &&
          kGeminiContextualSuggestionsCuesOnDeviceClassifier.Get();
 }
@@ -65,11 +107,17 @@ bool IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled() {
 }
 
 bool IsGeminiContextualSuggestionsCuesTitleAndUrlOnlyEnabled() {
+  if (IsIgnoreContextualCueingThresholdsEnabled()) {
+    return true;
+  }
   return IsGeminiContextualSuggestionsCuesEnabled() &&
          kGeminiContextualSuggestionsCuesTitleAndUrlOnly.Get();
 }
 
 bool IsGeminiContextualSuggestionsCuesServerModelExecutionEnabled() {
+  if (IsIgnoreContextualCueingThresholdsEnabled()) {
+    return true;
+  }
   return IsGeminiContextualSuggestionsCuesEnabled() &&
          kGeminiContextualSuggestionsCuesServerModelExecution.Get();
 }
@@ -153,5 +201,40 @@ BASE_FEATURE_PARAM(size_t,
                    kMaxBackgroundTabs,
                    &kGeminiContextualSuggestionsCues,
                    5);
+
+BASE_FEATURE_PARAM(size_t,
+                   kMaxConsecutiveMessageIgnores,
+                   &kGeminiContextualSuggestionsCues,
+                   3);
+
+BASE_FEATURE_PARAM(bool,
+                   kForceMessageUiOnly,
+                   &kGeminiContextualSuggestionsCues,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kForceOmniboxChipUiOnly,
+                   &kGeminiContextualSuggestionsCues,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kUsePrivateAi,
+                   &kGeminiContextualSuggestionsCues,
+                   true);
+
+BASE_FEATURE_PARAM(bool,
+                   kShowCuesToConsentedUsers,
+                   &kGeminiContextualSuggestionsCues,
+                   true);
+
+BASE_FEATURE_PARAM(bool,
+                   kShowCuesToSignedInUsers,
+                   &kGeminiContextualSuggestionsCues,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kShowCuesToAllUsers,
+                   &kGeminiContextualSuggestionsCues,
+                   false);
 
 }  // namespace contextual_cueing

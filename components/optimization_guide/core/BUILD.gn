@@ -230,6 +230,7 @@ source_set("model_execution") {
     "//components/prefs",
     "//components/update_client",
     "//components/variations/net",
+    "//google_apis",
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//services/on_device_model/public/mojom",
@@ -261,7 +262,6 @@ source_set("model_execution") {
       "//components/streaming_client",
       "//components/variations/net",
       "//components/version_info",
-      "//google_apis",
       "//services/network/public/cpp",
     ]
     sources += [
@@ -669,7 +669,6 @@ static_library("model_execution_test_support") {
       "//components/optimization_guide/public/mojom",
       "//components/prefs:test_support",
       "//components/update_client",
-      "//components/version_info",
       "//services/on_device_model/public/cpp:types",
       "//services/on_device_model/public/cpp/test_support",
       "//third_party/dawn/src/dawn:proc",

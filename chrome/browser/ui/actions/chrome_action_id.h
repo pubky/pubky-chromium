@@ -93,6 +93,7 @@
   E(kActionCreateNewTabGroup, IDC_CREATE_NEW_TAB_GROUP) \
   E(kActionTabGroupOpenInBrowser) \
   E(kActionTabGroupOpenInNewWindow) \
+  E(kActionToggleTabGroupFocus) \
   E(kActionTabGroupPin) \
   E(kActionTabGroupDelete) \
   E(kActionFocusNextTabGroup, IDC_FOCUS_NEXT_TAB_GROUP) \
@@ -312,6 +313,8 @@
     IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP) \
   E(kActionContentContextLensRegionSearch, \
     IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH) \
+  E(kActionContentContextAskGoogleAboutThisPage, \
+    IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE) \
   E(kActionAiMode) \
   E(kActionLensOverlayHomework) \
   E(kActionContentContextWebRegionSearch, \

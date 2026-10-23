@@ -48,6 +48,16 @@ BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kInfoBarInlineLinks, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Kill switch for crbug.com/559656985. When enabled, the press-and-hold Esc
+// timer also exits tab fullscreen (unless browser fullscreen is underneath)
+// when it fires while Esc is locked via the Keyboard Lock API. When disabled,
+// the timer only releases the keyboard lock and tab fullscreen exits on the
+// next Esc key event. Has no effect unless
+// kPressAndHoldEscToExitBrowserFullscreen is enabled.
+// TODO(crbug.com/559656985): Remove once the fix has shipped to stable.
+BASE_FEATURE(kKeyboardLockHeldEscExitsTabFullscreen,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kTabStripDeclutter, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kToolbarGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -380,6 +390,7 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kWebUIAvatarButton, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebUIMediaButton, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebUIGlicButton, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsWebUIReloadButtonEnabled() {
   return !IsProcessOverheadExperimentActive() &&
@@ -451,6 +462,13 @@ bool IsWebUIMediaButtonEnabled() {
           base::FeatureList::IsEnabled(features::kWebUIMediaButton));
 }
 
+bool IsWebUIGlicButtonEnabled() {
+  return !IsProcessOverheadExperimentActive() &&
+         base::FeatureList::IsEnabled(features::kInitialWebUI) &&
+         (base::FeatureList::IsEnabled(features::kWebUIToolbar) ||
+          base::FeatureList::IsEnabled(features::kWebUIGlicButton));
+}
+
 bool IsWebUIPerformanceInterventionButtonEnabled() {
   return !IsProcessOverheadExperimentActive() &&
          base::FeatureList::IsEnabled(features::kInitialWebUI) &&
@@ -479,7 +497,8 @@ bool IsWebUIToolbarEnabled() {
           IsWebUIExtensionsContainerEnabled() || IsWebUIAvatarButtonEnabled() ||
           IsWebUIMediaButtonEnabled() || IsWebUIAppMenuButtonEnabled() ||
           IsWebUIBatterySaverButtonEnabled() ||
-          IsWebUIPerformanceInterventionButtonEnabled());
+          IsWebUIPerformanceInterventionButtonEnabled() ||
+          IsWebUIGlicButtonEnabled());
 }
 
 bool IsWebUIToolbarFullyEnabled() {
@@ -494,7 +513,8 @@ bool IsWebUIToolbarFullyEnabled() {
           IsWebUIExtensionsContainerEnabled() && IsWebUIAvatarButtonEnabled() &&
           IsWebUIMediaButtonEnabled() && IsWebUIAppMenuButtonEnabled() &&
           IsWebUIBatterySaverButtonEnabled() &&
-          IsWebUIPerformanceInterventionButtonEnabled());
+          IsWebUIPerformanceInterventionButtonEnabled() &&
+          IsWebUIGlicButtonEnabled());
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -523,11 +543,6 @@ BASE_FEATURE_PARAM(std::string,
                    &kAiOverlayDialog,
                    "mock_json_path",
                    "");
-BASE_FEATURE_PARAM(bool,
-                   kAiOverlayDialogUsesActor,
-                   &kAiOverlayDialog,
-                   "ai_overlay_dialog_uses_actor",
-                   false);
 BASE_FEATURE_PARAM(bool,
                    kAiOverlayDialogUseMes,
                    &kAiOverlayDialog,

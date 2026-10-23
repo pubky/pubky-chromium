@@ -28,6 +28,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
@@ -1387,8 +1388,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?q=test query"), nullptr,
       WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      AutocompleteMatchType::SEARCH_SUGGEST, base::TimeTicks::Now(), false,
-      false, u"test query", match, match);
+      omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
+      false, false, u"test query", match, match);
 
   EXPECT_EQ(1, user_action_tester.GetActionCount(
                    "ContextualTasks.Composebox.UserAction.QuerySubmitted"));
@@ -1426,8 +1427,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?q=extracted%20query"), nullptr,
       WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      AutocompleteMatchType::SEARCH_SUGGEST, base::TimeTicks::Now(), false,
-      false, u"extracted query", match, match);
+      omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
+      false, false, u"extracted query", match, match);
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
@@ -1445,8 +1446,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?other=param"), nullptr,
       WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      AutocompleteMatchType::SEARCH_SUGGEST, base::TimeTicks::Now(), false,
-      false, u"other param", match, match);
+      omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
+      false, false, u"other param", match, match);
 }
 
 struct ToolModeTestParam {
@@ -1747,6 +1748,63 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_))
       .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
   handler_->CreateAndSendQueryMessage(kQuery, /*is_voice_search=*/false);
+  run_loop.Run();
+}
+
+// Regression test for b/567111042: deleting a delayed (auto-suggested) tab must
+// not report an upload status to the page, since the tab was never uploaded
+// and the deletion was initiated by the page itself.
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
+                       DeleteContext_Delayed_DoesNotNotifyPageOfExpiration) {
+  tabs::TabInterface* active_tab =
+      TabListInterface::From(browser())->GetActiveTab();
+  int32_t active_tab_id = active_tab->GetHandle().raw_value();
+  std::optional<base::UnguessableToken> token_opt;
+  base::MockCallback<ContextualSearchboxHandler::AddTabContextCallback>
+      callback;
+  EXPECT_CALL(callback, Run(testing::_)).WillOnce([&](const auto& result) {
+    ASSERT_TRUE(result.has_value());
+    token_opt = result.value();
+  });
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
+  ASSERT_TRUE(token_opt.has_value());
+  ASSERT_EQ(handler_->GetNumTabsDelayed(), 1);
+
+  EXPECT_CALL(
+      *handler_,
+      OnContextUploadStatusChanged(
+          *token_opt, testing::_,
+          contextual_search::ContextUploadStatus::kUploadExpired, testing::_))
+      .Times(0);
+  EXPECT_CALL(mock_searchbox_page_, OnContextualInputStatusChanged(
+                                        *token_opt, testing::_, testing::_))
+      .Times(0);
+
+  handler_->DeleteContext(*token_opt, /*from_automatic_chip=*/true);
+  searchbox_page_receiver_.FlushForTesting();
+
+  EXPECT_EQ(handler_->GetNumTabsDelayed(), 0);
+  EXPECT_FALSE(handler_->IsAnyContextUploading());
+}
+
+// Verifies that a genuine upload expiration reported by the context controller
+// is still forwarded to the page.
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
+                       OnContextUploadStatusChanged_ExpiredIsForwardedToPage) {
+  base::UnguessableToken token = base::UnguessableToken::Create();
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_searchbox_page_,
+              OnContextualInputStatusChanged(
+                  token, contextual_search::ContextUploadStatus::kUploadExpired,
+                  testing::_))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+
+  SimulateUploadStatusChanged(
+      token, lens::MimeType::kImage,
+      contextual_search::ContextUploadStatus::kUploadExpired, std::nullopt);
   run_loop.Run();
 }
 
@@ -4130,6 +4188,158 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(
     ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    OnTaskChangedClearsRestoredTabsFromPreviousThread) {
+  tabs::TabInterface* tab =
+      tabs::TabLookupFromWebContents::FromWebContents(web_contents_)->model();
+  ASSERT_NE(tab, nullptr);
+
+  // The session handle still holds a tab submitted in the previous thread.
+  contextual_search::FileInfo tab_info;
+  tab_info.tab_url = GURL("about:blank#1");
+  tab_info.tab_title = "About Blank 1";
+  tab_info.tab_session_id =
+      sessions::SessionTabHelper::FromWebContents(tab->GetContents())
+          ->session_id();
+  tab_info.mime_type = lens::MimeType::kHtml;
+  tab_info.selection_time = base::Time::Now();
+
+  auto mock_session = std::make_unique<testing::NiceMock<
+      contextual_search::MockContextualSearchSessionHandle>>();
+  EXPECT_CALL(*mock_session, GetSubmittedContextFileInfos())
+      .WillRepeatedly(
+          testing::Return(std::vector<contextual_search::FileInfo>{tab_info}));
+  mock_ui_->SetSessionHandle(mock_session.get());
+
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+  searchbox_page_receiver_.FlushForTesting();
+  testing::Mock::VerifyAndClearExpectations(&mock_searchbox_page_);
+
+  // Switching to a new thread must leave the page with no restored tabs, even
+  // though the session handle still reports the previous thread's tab.
+  std::vector<size_t> restored_tab_counts;
+  EXPECT_CALL(mock_searchbox_page_, SetAimThreadRestoredTabs(testing::_))
+      .WillRepeatedly(
+          [&](const std::vector<searchbox::mojom::TabInfoPtr>& tabs) {
+            restored_tab_counts.push_back(tabs.size());
+          });
+
+  handler_->OnTaskChanged();
+  searchbox_page_receiver_.FlushForTesting();
+
+  ASSERT_FALSE(restored_tab_counts.empty());
+  EXPECT_EQ(restored_tab_counts.back(), 0u);
+
+  mock_ui_->SetSessionHandle(nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    OnTaskChangedClearsSubmittedContextAndPersistedTabs) {
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+  ASSERT_NE(session_handle_, nullptr);
+  tabs::TabInterface* active_tab =
+      TabListInterface::From(browser())->GetActiveTab();
+  ASSERT_NE(active_tab, nullptr);
+  const int32_t active_tab_id = active_tab->GetHandle().raw_value();
+  std::optional<base::UnguessableToken> token_opt;
+  base::MockCallback<ContextualSearchboxHandler::AddTabContextCallback>
+      callback;
+  EXPECT_CALL(callback, Run(testing::_)).WillOnce([&](const auto& result) {
+    ASSERT_TRUE(result.has_value());
+    token_opt = result.value();
+  });
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
+  ASSERT_TRUE(token_opt.has_value());
+  const auto submitted_token = *token_opt;
+  ASSERT_THAT(handler_->GetSelectedTabIds(), testing::Contains(active_tab_id));
+
+  session_handle_->set_submitted_context_tokens({submitted_token});
+
+  const SessionID tab_session_id =
+      sessions::SessionTabHelper::IdForTab(active_tab->GetContents());
+  session_handle_->set_persisted_tabs(
+      {{tab_session_id, {submitted_token, lens::LensOverlayRequestId()}}});
+  session_handle_->set_deselected_tabs_urls(
+      {{tab_session_id, {GURL("https://example.com"), "Example"}}});
+  contextual_search::TabInfo restored_tab;
+  restored_tab.tab_id = tab_session_id.id();
+  restored_tab.url = GURL("https://restored.example.com");
+  restored_tab.title = "Restored";
+  session_handle_->SetRestoredTabs({restored_tab});
+
+  handler_->OnTaskChanged();
+
+  EXPECT_TRUE(session_handle_->GetSubmittedContextTokens().empty());
+  EXPECT_TRUE(session_handle_->persisted_tabs().empty());
+  EXPECT_TRUE(session_handle_->deselected_tabs_urls().empty());
+  EXPECT_TRUE(session_handle_->GetTabContextState().restored.empty());
+  EXPECT_TRUE(handler_->GetSelectedTabIds().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    ClearFiles_ClearsDelayedTabsAndDismissesAutoSuggestionBeforeRefreshingContext) {
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+
+  tabs::TabInterface* active_tab =
+      TabListInterface::From(browser())->GetActiveTab();
+  ASSERT_NE(active_tab, nullptr);
+  const int32_t active_tab_id = active_tab->GetHandle().raw_value();
+
+  std::optional<base::UnguessableToken> token_opt;
+  base::MockCallback<ContextualSearchboxHandler::AddTabContextCallback>
+      callback;
+  EXPECT_CALL(callback, Run(testing::_)).WillOnce([&](const auto& result) {
+    ASSERT_TRUE(result.has_value());
+    token_opt = result.value();
+  });
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
+  ASSERT_TRUE(token_opt.has_value());
+  ASSERT_EQ(handler_->GetNumTabsDelayed(), 1);
+
+  auto suggestion = std::make_unique<contextual_tasks::SuggestedTabInfo>();
+  suggestion->url = GURL("https://example.com/suggested");
+  suggestion->title = u"Suggested";
+  suggestion->tab_id = active_tab_id;
+  auto_suggestion_manager_.SetCurrentSuggestion(std::move(suggestion));
+  ASSERT_TRUE(mock_ui_->IsActiveTabContextSuggestionShowing());
+
+  auto* provider = contextual_tasks::ActiveTaskContextProvider::From(browser());
+  ASSERT_NE(provider, nullptr);
+
+  struct RefreshOrderObserver
+      : public contextual_tasks::ActiveTaskContextProvider::Observer {
+    explicit RefreshOrderObserver(ContextualTasksComposeboxHandler* handler,
+                                  MockContextualTasksUI* ui)
+        : handler_(handler), ui_(ui) {}
+    void OnContextTabsChanged(
+        const std::set<tabs::TabHandle>& context_tabs) override {
+      refresh_count_++;
+      EXPECT_EQ(handler_->GetNumTabsDelayed(), 0);
+      EXPECT_TRUE(handler_->GetSelectedTabIds().empty());
+      EXPECT_FALSE(ui_->IsActiveTabContextSuggestionShowing());
+    }
+    raw_ptr<ContextualTasksComposeboxHandler> handler_;
+    raw_ptr<MockContextualTasksUI> ui_;
+    int refresh_count_ = 0;
+  } observer(handler_.get(), mock_ui_.get());
+  provider->AddObserver(&observer);
+
+  handler_->ClearFiles(/*should_block_auto_suggested_tabs=*/true);
+
+  EXPECT_GE(observer.refresh_count_, 1);
+  provider->RemoveObserver(&observer);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
     CacheSubmittedTabsOnInit_UnmappedClosedTab) {
   auto mock_session = std::make_unique<testing::NiceMock<
       contextual_search::MockContextualSearchSessionHandle>>();
@@ -4253,6 +4463,46 @@ IN_PROC_BROWSER_TEST_F(
 
   handler_->CreateAndSendQueryMessage("second query",
                                       /*is_voice_search=*/false);
+  searchbox_page_receiver_.FlushForTesting();
+
+  mock_ui_->SetSessionHandle(nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    CacheSubmittedTabs_SkippedWhenLensVisualSelectionActive) {
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+  searchbox_page_receiver_.FlushForTesting();
+
+  auto mock_session = std::make_unique<testing::NiceMock<
+      contextual_search::MockContextualSearchSessionHandle>>();
+  contextual_search::FileInfo tab_info;
+  tab_info.tab_url = GURL("https://example.com");
+  tab_info.tab_title = "Example";
+  tab_info.tab_session_id = SessionID::FromSerializedValue(42);
+  tab_info.mime_type = lens::MimeType::kHtml;
+  tab_info.selection_time = base::Time::Now();
+  EXPECT_CALL(*mock_session, GetSubmittedContextFileInfos())
+      .WillRepeatedly(
+          testing::Return(std::vector<contextual_search::FileInfo>{tab_info}));
+  ON_CALL(*mock_session, GetController())
+      .WillByDefault(testing::Return(mock_controller_.get()));
+  mock_ui_->SetSessionHandle(mock_session.get());
+
+  base::UnguessableToken overlay_token = base::UnguessableToken::Create();
+  EXPECT_CALL(*mock_lens_controller_->mock_router(),
+              overlay_tab_context_file_token())
+      .WillRepeatedly(testing::Return(overlay_token));
+
+  // Simulate an active Lens visual selection thumbnail in the composebox.
+  handler_->OnLensThumbnailCreated("data:image/png;base64,DATA");
+
+  // Re-initializing input state while a Lens visual selection is active should
+  // not convert the tab into a restored tab.
+  EXPECT_CALL(mock_searchbox_page_, SetAimThreadRestoredTabs(testing::_))
+      .Times(0);
+  handler_->InitializeInputStateModel();
   searchbox_page_receiver_.FlushForTesting();
 
   mock_ui_->SetSessionHandle(nullptr);

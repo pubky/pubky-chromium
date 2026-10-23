@@ -198,6 +198,18 @@ bool IsGeminiEligibilityAblationEnabled();
 BASE_DECLARE_FEATURE(kGeminiLive);
 bool IsGeminiLiveEnabled();
 
+// Parameter to skip the Gemini Live FRE intro.
+inline constexpr char kGeminiLiveSkipIntroParam[] = "skip_intro";
+
+// Returns true if the Gemini Live FRE intro should be skipped.
+bool ShouldSkipGeminiLiveIntro();
+
+// Parameter to disable the Gemini Live IPH and New badge.
+inline constexpr char kGeminiLiveDisableIPHParam[] = "disable_iph";
+
+// Returns true if the Gemini Live IPH and New badge are disabled.
+bool IsGeminiLiveIPHDisabled();
+
 // Feature flag for Gemini Live Dormant Reasons.
 BASE_DECLARE_FEATURE(kGeminiLiveDormantReasons);
 bool IsGeminiLiveDormantReasonsEnabled();
@@ -243,8 +255,17 @@ base::TimeDelta GetActorPageStabilityAutofillPredictionsTimeout();
 // feature parameter of the `kActorTools` feature.
 bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool);
 
-// Feature flag for Actor origin gating on navigation.
-BASE_DECLARE_FEATURE(kActorOriginGatingForNavigation);
+// Feature flag controlling Actor origin gating.
+BASE_DECLARE_FEATURE(kActorOriginGating);
+
+extern const char kActorOriginGatingExplicitParam[];
+extern const char kActorOriginGatingImplicitParam[];
+
+// Returns true if origin gating is enabled for explicit navigations.
+bool IsActorOriginGatingForExplicitNavigationEnabled();
+
+// Returns true if origin gating is enabled for implicit navigations.
+bool IsActorOriginGatingForImplicitNavigationEnabled();
 
 // Feature flag for Model based page classification experiment.
 BASE_DECLARE_FEATURE(kModelBasedPageClassification);
@@ -352,6 +373,10 @@ BASE_DECLARE_FEATURE(kAppSwitcherAISummarization);
 // Returns true if App Switcher AI summarization is enabled.
 bool IsAppSwitcherAISummarizationEnabled();
 
+// Returns true if App Switcher AI summarization external URL testing is
+// enabled. Requires both `kAppSwitcherAISummarization` feature and the
+// experimental test flag to be enabled.
+bool IsAppSwitcherAISummarizationTestingExternalURLEnabled();
 
 #pragma mark - Debugging Features
 
@@ -363,6 +388,7 @@ enum class BWGPromoConsentVariations {
   kSkipConsent = 3,
   kForceFRE = 4,
   kSkipNewUserDelay = 5,
+  kForceLiveFRE = 6,
 };
 extern const char kBWGPromoConsentParams[];
 
@@ -371,6 +397,9 @@ BWGPromoConsentVariations BWGPromoConsentVariationsParam();
 
 // Returns YES if the promo should be forced.
 bool ShouldForceBWGPromo();
+
+// Returns YES if the Gemini Live FRE should be forced.
+bool ShouldForceGeminiLiveFRE();
 
 // Returns YES if the Chrome FRE recency check should be skipped when evaluating
 // whether to show the Gemini on-navigation promo.
@@ -394,6 +423,15 @@ BASE_DECLARE_FEATURE(kGeminiQuizzes);
 
 // Returns true if the GeminiQuizzes feature is enabled.
 bool IsGeminiQuizzesEnabled();
+
+// Parameter on GeminiQuizzes to open quizzes in a new tab instead of the Gemini
+// web modal.
+inline constexpr char kGeminiQuizzesOpenInNewTabParam[] =
+    "gemini_quizzes_open_in_new_tab";
+
+// Returns true if quizzes should open in a new tab instead of the Gemini web
+// modal.
+bool ShouldOpenGeminiQuizzesInNewTab();
 
 // Feature flag to enable the Gemini FRE UI refactoring.
 BASE_DECLARE_FEATURE(kGeminiFRERefactor);
@@ -501,5 +539,12 @@ BASE_DECLARE_FEATURE(kGeminiInsightsChipAblation);
 
 // Returns true if the `GeminiInsightsChipAblation` feature is enabled.
 bool IsGeminiInsightsChipAblationEnabled();
+
+// Feature flag gating passing Chrome iOS active Finch GWS variation IDs to the
+// embedded Gemini iOS SDK (`hostExperimentIDs`).
+BASE_DECLARE_FEATURE(kGeminiHostExperimentIDs);
+
+// Returns true if `kGeminiHostExperimentIDs` is enabled.
+bool IsGeminiHostExperimentIDsEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

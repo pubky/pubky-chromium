@@ -6,12 +6,14 @@
 
 #import <algorithm>
 #import <string>
+#import <string_view>
 #import <vector>
 
 #import "base/containers/fixed_flat_set.h"
 #import "base/metrics/field_trial_params.h"
 #import "base/strings/string_split.h"
 #import "base/strings/string_util.h"
+#import "base/system/sys_info.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/sync/base/features.h"
 #import "components/sync_preferences/features.h"
@@ -323,8 +325,31 @@ BASE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch,
              "kInactiveNavigationAfterAppLaunchKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+namespace {
+
+// Model identifier for the iPhone Duo form factor.
+constexpr std::string_view kDuoModelIdentifier = "iPhone19,4";
+NSString* const kDuoSimulatorModelIdentifier = @"iPhone19,4";
+
+}  // namespace
+
+bool IsDuoDevice() {
+#if TARGET_OS_SIMULATOR
+  NSString* simulator_model =
+      NSProcessInfo.processInfo.environment[@"SIMULATOR_MODEL_IDENTIFIER"];
+  if (simulator_model) {
+    return [simulator_model isEqualToString:kDuoSimulatorModelIdentifier];
+  }
+#endif
+  return base::SysInfo::HardwareModelName() == kDuoModelIdentifier;
+}
+
 bool IsPinnedTabsEnabled() {
-  return ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ||
+      IsDuoDevice()) {
+    return false;
+  }
+  return true;
 }
 
 BASE_FEATURE(kEnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -899,7 +924,7 @@ bool IsAimCobrowseEnabled() {
   return base::FeatureList::IsEnabled(kAimCobrowse);
 }
 
-BASE_FEATURE(kPreventCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFeedbackEntryPointsRequireCanSubmitFeedbackCapability,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1109,6 +1134,14 @@ bool IsDefaultBottomOmniboxOnIOSEnabled() {
   return base::FeatureList::IsEnabled(kDefaultBottomOmniboxOnIOS);
 }
 
+BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
+  return base::FeatureList::IsEnabled(
+      kClearRootViewControllerAfterSceneDisconnect);
+}
+
 BASE_FEATURE(kGlassToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGlassToolbarEnabled() {
@@ -1145,4 +1178,44 @@ BASE_FEATURE(kTTCEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsTTCEnabled() {
   return base::FeatureList::IsEnabled(kTTCEnabled);
+}
+
+BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAimCobrowseWebSelectionSearch, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAimCobrowseWebSelectionSearchEnabled() {
+  return IsAimCobrowseEnabled() &&
+         base::FeatureList::IsEnabled(kAimCobrowseWebSelectionSearch);
+}
+
+BASE_FEATURE(kAppBarAssistantCustomization, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarAssistantCustomizationEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarAssistantCustomization);
+}
+
+BASE_FEATURE(kLightAppBar, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsLightAppBarEnabled() {
+  return base::FeatureList::IsEnabled(kLightAppBar);
+}
+
+BASE_FEATURE(kLocationBarPerformanceImprovements,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsLocationBarPerformanceImprovementsEnabled() {
+  return base::FeatureList::IsEnabled(kLocationBarPerformanceImprovements);
+}
+
+BASE_FEATURE(kAppBarStaticSymbolWhenHidden, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarStaticSymbolWhenHiddenEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarStaticSymbolWhenHidden);
+}
+
+BASE_FEATURE(kAppBarDisableLongPress, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarDisableLongPressEnabled() {
+  return base::FeatureList::IsEnabled(kAppBarDisableLongPress);
 }

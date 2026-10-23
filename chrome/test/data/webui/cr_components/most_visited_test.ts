@@ -2411,17 +2411,52 @@ suite('NonEditable', () => {
     titleElements.forEach(el => assertTrue(el.hidden));
   });
 
-  test('maxTiles limits total tiles in single row', async () => {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    await setUpTest({
-      nonEditable: true,
-      hideTitle: true,
-      singleRow: true,
-      maxTiles: 7,
-    });
-    await addTiles(10, /*customLinksEnabled=*/ false);
-    const tiles = queryTiles();
-    assertEquals(7, tiles.length);
-    tiles.forEach(el => assertFalse(el.hidden));
+  test(
+      'maxTiles limits total tiles in single row and updates dynamically',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        await setUpTest({
+          nonEditable: true,
+          hideTitle: true,
+          singleRow: true,
+          maxTiles: 7,
+        });
+        await addTiles(10, /*customLinksEnabled=*/ false);
+        let tiles = queryTiles();
+        assertEquals(7, tiles.length);
+        tiles.forEach(el => assertFalse(el.hidden));
+
+        // Verify dynamically changing maxTiles updates rendered tiles.
+        mostVisited.maxTiles = 5;
+        await microtasksFinished();
+        tiles = queryTiles();
+        assertEquals(5, tiles.length);
+        tiles.forEach(el => assertFalse(el.hidden));
+      });
+
+  [false, true].forEach(hideTitle => {
+    test(
+        `focused tile link highlights circular tile icon, hideTitle=${
+            hideTitle}`,
+        async () => {
+          document.body.innerHTML = window.trustedTypes!.emptyHTML;
+          await setUpTest({
+            nonEditable: true,
+            hideTitle,
+          });
+          mostVisited.style.setProperty(
+              '--most-visited-focus-shadow', 'rgb(26, 115, 232) 0px 0px 0px 2px');
+          document.documentElement.classList.add('focus-outline-visible');
+          await addTiles(1, /*customLinksEnabled=*/ false);
+          const tile = queryTiles()[0]!;
+          const tileLink = tile.querySelector<HTMLElement>('a')!;
+          const tileIcon = tile.querySelector<HTMLElement>('.tile-icon')!;
+
+          tileLink.focus();
+          assertEquals('none', getComputedStyle(tileLink).boxShadow);
+          assertEquals(
+              'rgb(26, 115, 232) 0px 0px 0px 2px',
+              getComputedStyle(tileIcon).boxShadow);
+        });
   });
 });

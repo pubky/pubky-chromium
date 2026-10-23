@@ -512,6 +512,18 @@ FPDF_TEXTPAGE PDFiumPage::GetTextPage() {
 void PDFiumPage::ReloadTextPage() {
   CHECK_EQ(preventing_text_page_unload_count_, 0);
   text_page_.reset();
+
+  // Reset cached state that depends on `text_page_`.
+  calculated_text_runs_ = false;
+  text_runs_.clear();
+  marked_content_id_to_text_runs_map_.clear();
+  associated_text_run_indices_.clear();
+  calculated_links_ = false;
+  links_.clear();
+  calculated_annotations_ = false;
+  highlights_.clear();
+  calculated_page_object_text_run_breaks_ = false;
+  page_object_text_run_breaks_.clear();
   GetTextPage();
 }
 
@@ -886,8 +898,13 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfoAt(
   // start index of 0 and char index bounds have already been checked.
   CHECK(it != text_runs_.begin());
 
-  // The previous text run will include `char_index`.
-  return *std::prev(it);
+  // The previous text run will include `char_index`. Verify that `char_index`
+  // is within the text run's range, which would fail if `text_runs_` is out of
+  // sync with `text_page_`.
+  auto prev_it = std::prev(it);
+  CHECK_LT(static_cast<uint32_t>(char_index),
+           prev_it->start_index + prev_it->len);
+  return *prev_it;
 }
 
 std::vector<AccessibilityLinkInfo> PDFiumPage::GetLinkInfo() {
@@ -1567,11 +1584,6 @@ void PDFiumPage::PopulateAnnotationLinks() {
   // deletions below prevents one of them from erasing another.
   std::vector<Link> annotation_links;
   while (FPDFLink_Enumerate(page, &start_pos, &link_annot)) {
-    Link link;
-    Area area = GetLinkTarget(link_annot, &link.target);
-    if (area == NONSELECTABLE_AREA)
-      continue;
-
     PdfRect link_rect;
     if (!FPDFLink_GetAnnotRect(link_annot, &FsRectFFromPdfRect(link_rect))) {
       continue;
@@ -1581,6 +1593,7 @@ void PDFiumPage::PopulateAnnotationLinks() {
     // flipped. Swap the coordinates before further processing.
     link_rect.Normalize();
 
+    Link link;
     int quad_point_count = FPDFLink_CountQuadPoints(link_annot);
     // Calculate the bounds of link using the quad points data.
     // If quad points for link is not present then use
@@ -1599,6 +1612,15 @@ void PDFiumPage::PopulateAnnotationLinks() {
     } else {
       link.bounding_rects.push_back(PageToScreen(gfx::Point(), 1.0, link_rect,
                                                  PageOrientation::kOriginal));
+    }
+
+    // WARNING: Do not use `link_annot` after this call. It may have been
+    // invalidated.
+    Area area = GetLinkTarget(link_annot, &link.target);
+    if (area == NONSELECTABLE_AREA) {
+      // It is unfortunate that all the work above may get thrown away due to
+      // how `link_annot` access have to be arranged to be safe.
+      continue;
     }
 
     // Calculate underlying text range of link.

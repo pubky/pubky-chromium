@@ -1165,10 +1165,14 @@ class ApiTests extends ApiTestFixtureBase {
   }
 
   async testErrorShownOnMojoPipeError() {
-    // Calling getModelQualityClientId triggers a mojo pipe error because the
-    // runtime feature is disabled.
-    (this.host as GlicBrowserHostImpl)
-        .clientRemote.requestWithResponse('getModelQualityClientId', undefined);
+    if (this.testParams?.triggerError) {
+      // Calling getModelQualityClientId triggers a mojo pipe error because the
+      // runtime feature is disabled.
+      (this.host as GlicBrowserHostImpl)
+          .clientRemote
+          .requestWithResponse('getModelQualityClientId', undefined)
+          .catch(() => {});
+    }
   }
 
   async testPanelActiveWithMicrophone() {
@@ -2610,6 +2614,16 @@ class ApiTests extends ApiTestFixtureBase {
 
     await this.advanceToNextStep();
     await waitFor(stopMicrophonePromise.promise);
+  }
+
+  // Android only: the browser window loses focus.
+  async testStopMicrophoneOnWindowDeactivated() {
+    await this.testStopMicrophone();
+  }
+
+  // Android only: the bottom sheet closes.
+  async testStopMicrophoneOnBottomSheetClosed() {
+    await this.testStopMicrophone();
   }
 
   async testSetSyntheticExperimentState() {

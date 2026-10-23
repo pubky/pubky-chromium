@@ -56,13 +56,6 @@ BASE_DECLARE_FEATURE(kAccountRetrievalWaitsForRestoration);
 #endif
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kAvatarButtonSyncPromoForTesting);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-bool IsAvatarSyncPromoFeatureEnabled();
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-base::TimeDelta GetAvatarSyncPromoFeatureMinimumCookeAgeParam();
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kAvoidAutoTriggerListAccountsOnStale);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -468,33 +461,6 @@ BASE_DECLARE_FEATURE_PARAM(bool, kOAuthMultiloginYoutubeCookieBindingEnforced);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnablePreferencesAccountStorage);
 
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableSeamlessSignin);
-enum class SeamlessSigninPromoType {
-  // Compact design with a single button to sign in and a dropdown icon for
-  // changing account.
-  kCompact,
-  // Design with a button to sign in and a button for changing account, similar
-  // to the current promo.
-  kTwoButtons,
-};
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<SeamlessSigninPromoType>
-    kSeamlessSigninPromoType;
-enum class SeamlessSigninStringType {
-  // Strings with "Sign in to Chrome" in the title and "Continue as" in the
-  // primary button
-  kContinueButton,
-  // Strings with "Sign in to Chrome" in the description and "Sign in as" in the
-  // primary button
-  kSigninButton,
-};
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<SeamlessSigninStringType>
-    kSeamlessSigninStringType;
-#endif  // BUILDFLAG(IS_ANDROID)
-
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableSearchAIModeSigninPromo);
@@ -518,6 +484,30 @@ extern const base::FeatureParam<base::TimeDelta>
     kPolicyDisclaimerRegistrationRetryDelay;
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// This feature controls showing the visually refreshed enterprise signin
+// dialogs, i.e. all the screens served by `ManagedUserProfileNoticeUI`
+// (enterprise profile welcome/creation, OIDC and the device signals
+// disclaimer). This feature is no-op if `kFirstRunDesktopRefresh` is disabled.
+//
+// This is a chained launch: these dialogs ship after the rest of the first run
+// desktop refresh, and are held back in the search engine choice screen
+// regions until `kFirstRunDesktopChoiceScreenRefresh` is enabled, so that
+// users never see them refreshed next to a non-refreshed flow.
+//
+// Clients should never use this feature directly to determine if the
+// refresh is enabled, they should use
+// `IsEnterpriseSigninDialogsRefreshEnabled()` instead.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnterpriseSigninDialogsRefresh);
+// A helper function to determine if the enterprise signin dialogs refresh is
+// enabled (see `kEnterpriseSigninDialogsRefresh`, `kFirstRunDesktopRefresh` and
+// `kFirstRunDesktopChoiceScreenRefresh` flags).
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+bool IsEnterpriseSigninDialogsRefreshEnabled(
+    bool is_in_search_engine_choice_region);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 // Controls whether the navigation performed by
 // `chrome.identity.launchWebAuthFlow` is attributed with the extesion's origin.
@@ -526,9 +516,10 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kExtensionWebAuthFlowInitiatorOrigin);
 #endif
 
-// Feature flag to fetch AccountInfo (UserInfo & Capabilities) on restart.
+// Feature flag to fetch Account Capabilities on restart. UserInfo is not
+// affected and keeps being refreshed only when invalid or stale.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kFetchAccountInfoOnRestart);
+BASE_DECLARE_FEATURE(kFetchAccountCapabilitiesOnRestart);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // This feature controls running visually refreshed first run and profile
@@ -673,12 +664,6 @@ BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccountsOnAndroid);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
-// Killswitch for ignoring X-Chrome-Manage-Accounts header in subframes.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kIgnoreChromeManageAccountsInSubframes);
-#endif
-
-#if BUILDFLAG(IS_IOS)
 // Feature flag to ignore invalid grant errors in AuthenticationService.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kIgnoreInvalidGrantError);
@@ -689,9 +674,16 @@ BASE_DECLARE_FEATURE(kIgnoreInvalidGrantError);
 // Autofill-based promo flow or the native Views-based banner flow.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kMagiChromePasskeySignIn);
-// Controls which flow is active: "autofill" or "banner".
+// Controls which client flow is active. The client only acts on "autofill";
+// any other value means no client passkey UI.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<std::string> kMagiChromePasskeySignInFlowType;
+// Numeric Gaia experiment arm, forwarded to Gaia as the
+// `magichrome_fre_exp_branch` URL query parameter. Arms start at 1; the
+// default 0 (also used for unset or non-integer values) forwards nothing.
+// Each Finch arm must set this consistently with `flow_type`.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const base::FeatureParam<int> kMagiChromePasskeySignInGaiaExpBranch;
 // Returns true if the MagiChrome passkey sign-in Autofill flow is active.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsMagiChromePasskeyAutofillEnabled();
@@ -699,12 +691,6 @@ bool IsMagiChromePasskeyAutofillEnabled();
 // active.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsMagiChromePasskeyBannerEnabled();
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// Controls experiments for MagiChrome (e.g. Gaia sign-in URL parameters).
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kMagiChromeSignInExperimentsBatch1);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -815,6 +801,11 @@ BASE_DECLARE_FEATURE(kSigninButtonProfileMenu);
 // Shows an error card in the profile menu on Desktop Android.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSigninButtonProfileMenuErrorCard);
+
+// Enables fast-follow enhancements and visual adjustments for the desktop-like
+// profile menu on Desktop Android.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSigninButtonProfileMenuRefinements);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Enables the new visual design for the profile switch interception bubble,

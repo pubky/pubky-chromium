@@ -141,7 +141,7 @@ class ContextualTasksOmniboxClient : public ContextualOmniboxClient {
       TemplateURLRef::PostContent* post_content,
       WindowOpenDisposition disposition,
       ui::PageTransition transition,
-      AutocompleteMatchType::Type match_type,
+      omnibox::AutocompleteMatchType match_type,
       base::TimeTicks match_selection_timestamp,
       bool destination_url_entered_without_scheme,
       bool destination_url_entered_with_http_scheme,
@@ -168,7 +168,7 @@ void ContextualTasksOmniboxClient::OnAutocompleteAccept(
     TemplateURLRef::PostContent* post_content,
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
-    AutocompleteMatchType::Type match_type,
+    omnibox::AutocompleteMatchType match_type,
     base::TimeTicks match_selection_timestamp,
     bool destination_url_entered_without_scheme,
     bool destination_url_entered_with_http_scheme,
@@ -546,9 +546,39 @@ void ContextualTasksComposeboxHandler::UpdateStateFromUrl(const GURL& url) {
 }
 
 void ContextualTasksComposeboxHandler::OnTaskChanged() {
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    // The session handle can be carried over from the side panel WebContents
+    // (via UpdateContextualSearchWebContentsHelperForTask) and still hold the
+    // tabs submitted/persisted in the previous thread. Clear them before
+    // ClearFiles() runs so ClearFiles() does not retain the previous thread's
+    // submitted tabs in selected_tabs, and rather than relying on
+    // SetSmartTabSharingActive(false), which is a no-op when Smart Tab Sharing
+    // is disabled or already inactive.
+    if (auto* session_handle = GetContextualSessionHandle()) {
+      session_handle->ClearSubmittedContextTokens();
+      session_handle->set_persisted_tabs({});
+      session_handle->set_deselected_tabs_urls({});
+      session_handle->SetRestoredTabs({});
+    }
+  }
   ClearFiles(/*should_block_auto_suggested_tabs=*/false);
   SetSmartTabSharingActive(false);
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    if (auto* browser = web_ui_interface_->GetBrowser()) {
+      if (auto* provider =
+              contextual_tasks::ActiveTaskContextProvider::From(browser)) {
+        provider->ClearAllLocalTabUnderlines();
+        provider->RefreshContext();
+      }
+    }
+  }
   InitializeInputStateModel();
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    // Clear any restored tabs on the page for the new thread; the new thread's
+    // restored tabs are populated from the server once its context loads (see
+    // ContextualTasksUI::OnRestoredTabsFetched()).
+    SetAimThreadRestoredTabs({});
+  }
 }
 
 std::vector<int32_t> ContextualTasksComposeboxHandler::GetSelectedTabIds()
@@ -695,6 +725,20 @@ void ContextualTasksComposeboxHandler::CacheSubmittedTabsFromSessionHandle() {
       !IsContextualSearchTabSharingEligible()) {
     return;
   }
+#if !BUILDFLAG(IS_ANDROID)
+  if (visual_selection_token_.has_value()) {
+    return;
+  }
+  if (auto* controller = GetLensSearchController()) {
+    if (controller->lens_overlay_controller()->HasRegionSelection() &&
+        controller->query_router() &&
+        controller->query_router()
+            ->overlay_tab_context_file_token()
+            .has_value()) {
+      return;
+    }
+  }
+#endif
   auto* session_handle = GetContextualSessionHandle();
   if (!session_handle) {
     return;
@@ -1073,22 +1117,31 @@ void ContextualTasksComposeboxHandler::ForwardTabContextResult(
 
 void ContextualTasksComposeboxHandler::ClearFiles(
     bool should_block_auto_suggested_tabs) {
-  // Clear all files from the UI.
-  ComposeboxHandler::ClearFiles(should_block_auto_suggested_tabs);
-  // Clear any delayed tabs.
+  // Clear delayed tabs and dismiss any auto-suggested tab chip before calling
+  // the base class, which triggers ActiveTaskContextProvider::RefreshContext()
+  // to recompute tab strip underlines.
   delayed_tabs_.clear();
-
   pending_delayed_tab_ids_.clear();
   pending_context_uploads_.clear();
   pending_query_request_info_.reset();
-#if !BUILDFLAG(IS_ANDROID)
-  visual_selection_token_.reset();
-  visual_selection_overlay_token_.reset();
-#endif
-
   if (should_block_auto_suggested_tabs) {
     web_ui_interface_->GetAutoSuggestionManager()->OnAutoSuggestionDismissed();
   }
+
+  // Clear all files from the UI.
+  ComposeboxHandler::ClearFiles(should_block_auto_suggested_tabs);
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (visual_selection_token_.has_value()) {
+    if (auto* controller = GetLensSearchController()) {
+      if (controller->lens_overlay_controller()) {
+        controller->lens_overlay_controller()->ClearRegionSelection();
+      }
+    }
+  }
+  visual_selection_token_.reset();
+  visual_selection_overlay_token_.reset();
+#endif
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1244,9 +1297,12 @@ void ContextualTasksComposeboxHandler::DeleteContext(
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
   if (was_delayed) {
-    OnContextUploadStatusChanged(
-        file_token, lens::MimeType::kUnknown,
-        contextual_search::ContextUploadStatus::kUploadExpired, std::nullopt);
+    // Delayed tabs are never uploaded, and this deletion was initiated by the
+    // WebUI, so there is no upload status to report back to the page. Doing so
+    // would surface a spurious upload error. Only refresh the input state.
+    if (input_state_model()) {
+      input_state_model()->OnContextChanged();
+    }
   }
 
   // Hide the underline for the tab if it was associated with the deleted

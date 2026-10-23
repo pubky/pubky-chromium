@@ -6,14 +6,14 @@ import 'chrome://contextual-tasks/app.js';
 
 import type {ContextualTasksAppElement} from 'chrome://contextual-tasks/app.js';
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
-import {ComposeboxFile, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import {LensOverlayDismissalSource, PageHandlerRemote as ComposeboxPageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import {ContextUploadStatus, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -811,6 +811,7 @@ suite('ContextualTasksComposeboxForkFilesTest', () => {
             lastActive: {internalValue: BigInt(100)},
             showInCurrentTabChip: true,
             showInPreviousTabChip: false,
+            isLoading: false,
           },
           null);
       await searchboxCallbackRouterRemote.$.flushForTesting();
@@ -874,6 +875,7 @@ suite('ContextualTasksComposeboxForkAutoTabTest', () => {
       lastActive: {internalValue: BigInt(100)},
       showInCurrentTabChip: true,
       showInPreviousTabChip: false,
+      isLoading: false,
     };
   }
 
@@ -917,7 +919,7 @@ suite('ContextualTasksComposeboxForkAutoTabTest', () => {
         title,
         url,
         delayUpload: false,
-        origin: TabUploadOrigin.CURRENT_TAB_CHIP,
+        origin: TabAttachmentSource.kCurrentTabChip,
       });
     });
     await settle();
@@ -1523,6 +1525,50 @@ suite('ContextualTasksComposeboxForkAutoTabTest', () => {
       assertTrue(innerComposebox.getHasAutomaticActiveTabChipToken());
       assertEquals(1, innerComposebox.attachedContext.size);
     });
+
+    test(
+        'ghost file upload finishing before addTabContext stays completed',
+        async () => {
+          await mountApp();
+          const {innerComposebox} = parts;
+          innerComposebox.shouldShowGhostFiles = true;
+          await innerComposebox.updateComplete;
+
+          let resolveAddTabContext!: (token: UnguessableToken) => void;
+          mockSearchboxPageHandler.resetResolver(ADD_TAB_CONTEXT_FN);
+          mockSearchboxPageHandler.setResultFor(
+              ADD_TAB_CONTEXT_FN, new Promise<UnguessableToken>(resolve => {
+                resolveAddTabContext = resolve;
+              }));
+
+          getEntrypointAndMenu().fire('add-tab-context', {
+            id: 2,
+            title: 'Manual tab',
+            url: 'https://manual.example.com',
+            delayUpload: false,
+            origin: TabAttachmentSource.kCurrentTabChip,
+          });
+          await mockSearchboxPageHandler.whenCalled(ADD_TAB_CONTEXT_FN);
+
+          // Simulate Page remote notifications arriving before PageHandler's
+          // addTabContext response callback runs.
+          searchboxCallbackRouterRemote.onContextualInputStatusChanged(
+              MANUAL_TOKEN, ContextUploadStatus.kProcessing, null);
+          searchboxCallbackRouterRemote.onContextualInputStatusChanged(
+              MANUAL_TOKEN, ContextUploadStatus.kUploadSuccessful, null);
+          await searchboxCallbackRouterRemote.$.flushForTesting();
+          await settle();
+
+          // Now resolve addTabContext.
+          resolveAddTabContext(MANUAL_TOKEN);
+          await settle();
+
+          assertEquals(1, innerComposebox.attachedContext.size);
+          const file = innerComposebox.attachedContext.get(MANUAL_TOKEN);
+          assertTrue(!!file);
+          assertEquals(ContextUploadStatus.kUploadSuccessful, file.status);
+          assertTrue(innerComposebox.fileUploadsComplete);
+        });
   });
 
   // The searchbox Smart Tab Sharing surface is gated out of the

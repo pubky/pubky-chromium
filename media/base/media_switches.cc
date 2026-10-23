@@ -355,12 +355,6 @@ namespace media {
 // Whether we should allow color space changes to flush AcceleratedVideoDecoder.
 BASE_FEATURE(kAVDColorSpaceChanges, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether VideoFrameConverter accurately maps RGB to YUV color spaces
-// instead of always coercing to Rec.601.
-// TODO(crbug.com/467555325): Remove after M153 reaches stable.
-BASE_FEATURE(kAccurateVideoFrameConverterColorSpace,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls whether AOM/VPX decoders should use the presentation thread type.
 BASE_FEATURE(kAomVpxUsePresentationThreadType,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -649,6 +643,17 @@ BASE_FEATURE(kGlobalVaapiLock, base::FEATURE_DISABLED_BY_DEFAULT);
 // sufficient, SPS+PPS must appear in-band to mark it as a keyframe.
 BASE_FEATURE(kH264IDRKeyframeRequiresParameterSets,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Skips H.264 NAL units with the unspecified nal_unit_type 31 during Annex B
+// conversion, to work around platform decoders that fail on them.
+// TODO(b/567236166): Remove once the cros-codecs fix has rolled out.
+BASE_FEATURE(kH264SkipUnspecifiedNalus,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Enables handling of hardware media keys for controlling media.
 BASE_FEATURE(kHardwareMediaKeyHandling,
@@ -1364,6 +1369,13 @@ BASE_FEATURE(kRequestSystemAudioFocus, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables skipping MediaCodec reallocation if input buffer requirements
 // are already met.
 BASE_FEATURE(kSkipMediaCodecReallocation, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Restricts MediaCodecAudioDecoder from handling unencrypted Vorbis, FLAC,
+// Opus, and non-xHE-AAC audio, preventing unintended fallback when built-in
+// software decoders fail to initialize. Remove and replace with constructor
+// arguments for tests after M154.
+BASE_FEATURE(kStrictMediaCodecAudioDecoderSupport,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Allow the video decoder (MediaCodecVideoDecoder) to query the MediaCrypto
 // object with a mime type to see if a secure decoder component is required.

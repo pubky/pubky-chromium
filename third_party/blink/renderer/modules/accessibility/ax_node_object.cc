@@ -2325,8 +2325,16 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
   // TODO(accessibility) if (AXObjectCache().IsInternalUICheckerOn()) assert,
   // because it is a bad code smell and usually points to other problems.
   if (GetElement() && !HasAriaAttribute(html_names::kRoleAttr)) {
-    if (IsPopup() != ax::mojom::blink::IsPopup::kNone ||
-        GetElement()->FastHasAttribute(html_names::kAutofocusAttr) ||
+    if (IsPopup() != ax::mojom::blink::IsPopup::kNone) {
+      const FocusgroupData data = GetElement()->GetFocusgroupData();
+      if (focusgroup::IsActualFocusgroup(data)) {
+        // Preserve native-role-only behavior, such as clickability, by letting
+        // DetermineRoleValue() store the implied role in aria_role_.
+        return ax::mojom::blink::Role::kGenericContainer;
+      }
+      return ax::mojom::blink::Role::kGroup;
+    }
+    if (GetElement()->FastHasAttribute(html_names::kAutofocusAttr) ||
         GetElement()->FastHasAttribute(html_names::kDraggableAttr)) {
       return ax::mojom::blink::Role::kGroup;
     }
@@ -4055,19 +4063,53 @@ AXObject::AXObjectVector AXNodeObject::RadioButtonsInGroup() const {
     return radio_buttons;
   }
 
-  // If the immediate parent is a radio group, return all its children that are
-  // radio buttons.
-  AXObject* parent = ParentObjectUnignored();
-  if (parent && parent->RoleValue() == ax::mojom::blink::Role::kRadioGroup) {
-    for (AXObject* child : parent->UnignoredChildrenSlow()) {
-      DCHECK(child);
+  // For ARIA radio buttons, find the containing radiogroup and collect all
+  // radio buttons within it, but not in nested radiogroups.
+  AXObject* radiogroup = NearestAriaRadioGroupAncestor(this);
+  if (!radiogroup) {
+    return radio_buttons;
+  }
+
+  return AXObjectCache().GetOrComputeAriaRadioButtonGroupMembers(radiogroup);
+}
+
+// static
+AXObject* AXNodeObject::NearestAriaRadioGroupAncestor(const AXObject* radio) {
+  if (!radio) {
+    return nullptr;
+  }
+  for (AXObject* ancestor = radio->ParentObjectUnignored(); ancestor;
+       ancestor = ancestor->ParentObjectUnignored()) {
+    if (ancestor->RoleValue() == ax::mojom::blink::Role::kRadioGroup) {
+      return ancestor;
+    }
+  }
+  return nullptr;
+}
+
+// static
+HeapVector<Member<AXObject>> AXNodeObject::CollectAriaRadioButtonsInGroup(
+    AXObject* radiogroup) {
+  HeapVector<Member<AXObject>> radio_buttons;
+  if (!radiogroup) {
+    return radio_buttons;
+  }
+
+  HeapDeque<Member<AXObject>> queue;
+  queue.push_back(radiogroup);
+  while (!queue.empty()) {
+    AXObject* current = queue.front();
+    queue.pop_front();
+    for (const auto& child : current->ChildrenIncludingIgnored()) {
+      CHECK(child);
       if (child->RoleValue() == ax::mojom::blink::Role::kRadioButton &&
-          child->IsIncludedInTree()) {
+          !child->IsIgnored()) {
         radio_buttons.push_back(child);
+      } else if (child->RoleValue() != ax::mojom::blink::Role::kRadioGroup) {
+        queue.push_back(child);
       }
     }
   }
-
   return radio_buttons;
 }
 
@@ -4246,8 +4288,8 @@ float AXNodeObject::GetTextIndent() const {
   if (IsTextObject() || !GetLayoutObject())
     return 0.0f;
 
-  const blink::LayoutBlock* layout_block =
-      GetLayoutObject()->InclusiveContainingBlock();
+  const auto* layout_block =
+      DynamicTo<LayoutBlock>(GetLayoutObject()->InclusiveContainingBlock());
   if (!layout_block)
     return 0.0f;
   float text_indent = layout_block->TextIndentOffset().ToFloat();
@@ -7115,7 +7157,7 @@ String AXNodeObject::TextAlternativeFromTooltip(
 }
 
 String AXNodeObject::TextAlternativeFromTitleAttribute(
-    const AtomicString& title,
+    AtomicString title,
     ax::mojom::blink::NameFrom& name_from,
     NameSources* name_sources,
     bool* found_text_alternative) const {
@@ -8056,7 +8098,8 @@ String AXNodeObject::Description(
           DescriptionSource(found_description, kTitleAttr));
       description_sources->back().type = description_from;
     }
-    const AtomicString& title = element->FastGetAttribute(kTitleAttr);
+    // Copy title as computing inner text can modify the attribute storage.
+    const AtomicString title = element->FastGetAttribute(kTitleAttr);
     if (!title.empty() &&
         String(title).StripWhiteSpace() !=
             element->GetInnerTextWithoutUpdate().StripWhiteSpace()) {

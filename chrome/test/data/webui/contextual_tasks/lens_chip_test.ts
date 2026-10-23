@@ -9,7 +9,7 @@ import {ExtensionBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_ta
 import type {LensChipAppElement} from 'chrome://contextual-tasks/contextual_tasks_extension/lens_chip_app.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestExtensionBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
 
@@ -64,8 +64,19 @@ suite('LensChipTest', () => {
         'Remove selected region', closeButton.getAttribute('aria-label'));
     assertEquals('Remove selected region', closeButton.getAttribute('title'));
     assertEquals('8px', getComputedStyle(app).borderRadius);
-    assertEquals('0', getComputedStyle(closeButton).opacity);
-    assertEquals('none', getComputedStyle(closeButton).pointerEvents);
+
+    // The chip fills the whole test page, so on bots where the mouse pointer
+    // happens to rest inside the browser window, `.chip:hover` applies and
+    // reveals the close button (the opacity transition may still be in
+    // flight). Only assert the resting styles while the chip is neither
+    // hovered nor focused.
+    const closeButtonStyle = getComputedStyle(closeButton);
+    if (chipRoot.matches(':hover, :focus-within')) {
+      assertEquals('auto', closeButtonStyle.pointerEvents);
+    } else {
+      assertEquals('0', closeButtonStyle.opacity);
+      assertEquals('none', closeButtonStyle.pointerEvents);
+    }
   });
 
   test(
@@ -82,6 +93,54 @@ suite('LensChipTest', () => {
         assertEquals(null, cropImage);
         const chipRoot = app.shadowRoot?.querySelector('#chipRoot');
         assertEquals(null, chipRoot);
+      });
+
+  test(
+      'Clicking close button fires close-chip event and calls removeLensCrop',
+      async () => {
+        browserProxy.handler.setLensCropPreviewResult(MOCK_DATA_URI);
+
+        app = document.createElement('lens-chip-app');
+        document.body.appendChild(app);
+        await microtasksFinished();
+
+        await browserProxy.handler.whenCalled('getLensCropPreview');
+        assertEquals(MOCK_DATA_URI, app.getDataUriForTesting());
+
+        const closeButton =
+            app.shadowRoot?.querySelector<HTMLElement>('#closeButton');
+        assertTrue(!!closeButton);
+
+        const closeEventPromise = eventToPromise('close-chip', app);
+        closeButton.click();
+        await closeEventPromise;
+
+        await browserProxy.handler.whenCalled('removeLensCrop');
+        assertEquals(1, browserProxy.handler.getCallCount('removeLensCrop'));
+        assertEquals('', app.getDataUriForTesting());
+      });
+
+  test(
+      'Chip updates preview when onLensCropUpdated is dispatched', async () => {
+        browserProxy.handler.setLensCropPreviewResult(null);
+
+        app = document.createElement('lens-chip-app');
+        document.body.appendChild(app);
+        await microtasksFinished();
+
+        const UPDATED_DATA_URI =
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg' +
+            '0kAAAAFElEQVR42mNk+M/wHwMDAwMDkAAAAP//DwYFBQAAAABJRU5ErkJggg==';
+
+        browserProxy.callbackRouterRemote.onLensCropUpdated(UPDATED_DATA_URI);
+        await microtasksFinished();
+
+        assertEquals(UPDATED_DATA_URI, app.getDataUriForTesting());
+        const cropImage =
+            app.shadowRoot?.querySelector<HTMLImageElement>('#cropImage');
+        assertTrue(!!cropImage);
+        assertTrue(isVisible(cropImage));
+        assertEquals(UPDATED_DATA_URI, cropImage.src);
       });
 
   test('Dark mode reflects attribute correctly', async () => {

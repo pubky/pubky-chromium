@@ -19,6 +19,7 @@ BASE_DECLARE_FEATURE(kContextualTasks);
 BASE_DECLARE_FEATURE(kContextualTasksPrivateApiNoAnimation);
 BASE_DECLARE_FEATURE(kContextualTasksSidePanel);
 BASE_DECLARE_FEATURE(kContextualTasksEphemeralBrandedEntryPoint);
+BASE_DECLARE_FEATURE(kContextualTasksUpdatedEntryPoints);
 BASE_DECLARE_FEATURE(kContextualTasksExtraOauthScopes);
 BASE_DECLARE_FEATURE(kContextualTasksDriveOAuthScope);
 BASE_DECLARE_FEATURE(kEnableContextualTasksPinButtonInToolbar);
@@ -128,6 +129,12 @@ BASE_DECLARE_FEATURE(kContextualTasksWindowTracking);
 // Enables upload chunking for Contextual Tasks.
 BASE_DECLARE_FEATURE(kContextualTasksUploadChunking);
 
+// Enables the in-panel WebUI voice search UI on large-screen Android (tablet
+// and desktop form factors), instead of delegating to the platform voice
+// recognition activity. Has no effect on Android phones, or off Android, which
+// always uses the WebUI voice search UI.
+BASE_DECLARE_FEATURE(kContextualTasksWebUiVoiceSearchDesktopAndroid);
+
 // Enables composebox embedded in AIM main frame, new auth, and
 // new side panel and ghost loader for contextual tasks.
 BASE_DECLARE_FEATURE(kContextualTasksRearchitecture);
@@ -157,6 +164,10 @@ BASE_DECLARE_FEATURE(kAllowSignedOutUserInDesktopAndroid);
 // Desktop Android.
 bool IsAllowSignedOutUserInDesktopAndroidEnabled();
 
+BASE_DECLARE_FEATURE(kCopyTextJourneys);
+
+bool IsCopyTextJourneysEnabled();
+
 BASE_DECLARE_FEATURE(kContextualTasksEnableSpatialModelToolbarLayout);
 
 enum class OverflowMenuItems {
@@ -176,6 +187,8 @@ bool GetIsContextualTasksLazyFetchClusterInfoEnabled();
 bool GetIsContextualTasksWindowTrackingEnabled();
 
 bool GetIsContextualTasksUploadChunkingEnabled();
+
+bool GetIsContextualTasksWebUiVoiceSearchDesktopAndroidEnabled();
 
 bool GetContextualTasksSpatialModelToolbarLayoutEnabled();
 
@@ -300,6 +313,17 @@ BASE_DECLARE_FEATURE_PARAM(bool,
 
 // UI Options to expand the contextual tasks side panel to tab.
 extern const base::FeatureParam<ExpandButtonOption, true> kExpandButtonOptions;
+
+// Controls whether the "Ask Google..." context menu item is shown.
+extern const base::FeatureParam<bool> kContextualTasksContextMenuShowAskGoogle;
+
+// Controls whether "Ask Google..." entrypoints are routed to the omnibox.
+extern const base::FeatureParam<bool>
+    kContextualTasksContextMenuRouteAskGoogleToOmnibox;
+
+// Controls whether the contextual tasks context menu items are grouped into a
+// submenu.
+extern const base::FeatureParam<bool> kContextualTasksContextMenuSubmenu;
 
 // Whether the context menu is enabled for Nextbox.
 extern bool GetIsContextualTasksNextboxContextMenuEnabled();
@@ -525,6 +549,8 @@ extern const char kContextualTasksContextLibraryName[];
 extern const char kContextualTasksContextLibraryDescription[];
 extern const char kContextualTasksContextName[];
 extern const char kContextualTasksContextDescription[];
+extern const char kContextualTasksContextMultiTurnTabRelevanceName[];
+extern const char kContextualTasksContextMultiTurnTabRelevanceDescription[];
 extern const char kContextualTasksSearchQueryName[];
 extern const char kContextualTasksSearchQueryDescription[];
 extern const char kContextualTasksSuggestionsEnabledName[];
@@ -548,6 +574,8 @@ extern const char kContextualTasksRearchitectureName[];
 extern const char kContextualTasksRearchitectureDescription[];
 extern const char kContextualTasksEphemeralBrandedEntryPointName[];
 extern const char kContextualTasksEphemeralBrandedEntryPointDescription[];
+extern const char kContextualTasksUpdatedEntryPointsName[];
+extern const char kContextualTasksUpdatedEntryPointsDescription[];
 extern const char kContextualTasksSidePanelRearchitectureName[];
 extern const char kContextualTasksSidePanelRearchitectureDescription[];
 extern const char kContextualTasksClobberActiveTabName[];
@@ -558,6 +586,8 @@ extern const char kEphemeralPinningVisibleWhenPermanentlyPinnedName[];
 extern const char kEphemeralPinningVisibleWhenPermanentlyPinnedDescription[];
 extern const char kContextualTasksEphemeralButtonContextMenuName[];
 extern const char kContextualTasksEphemeralButtonContextMenuDescription[];
+extern const char kCopyTextJourneysName[];
+extern const char kCopyTextJourneysDescription[];
 
 }  // namespace flag_descriptions
 

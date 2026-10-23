@@ -17,6 +17,15 @@
 #include "third_party/metrics_proto/user_demographics.pb.h"
 #include "url/gurl.h"
 
+#if !defined(__IPHONE_27_1) || __IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_27_1
+typedef NS_ENUM(NSInteger, UIHingeStatus) {
+  UIHingeStatusUnknown = 0,
+  UIHingeStatusClosed = 1,
+  UIHingeStatusPartiallyOpen = 2,
+  UIHingeStatusFullyOpen = 3,
+};
+#endif
+
 @class FakeSystemIdentity;
 @class ElementSelector;
 @class JavaScriptExecutionResult;
@@ -102,6 +111,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the bottom omnibox steady state feature is enabled.
 - (BOOL)isBottomOmniboxAvailable;
 
+// Returns whether the Pinned Tabs feature is enabled.
+- (BOOL)isPinnedTabsEnabled;
+
 // Returns whether the current layout is showing the bottom omnibox.
 - (BOOL)isCurrentLayoutBottomOmnibox;
 
@@ -110,6 +122,16 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns the interface orientation of the scene.
 - (UIInterfaceOrientation)interfaceOrientation;
+
+// Returns YES if running on an iPhone Duo simulator.
+- (BOOL)isDuoSimulator;
+
+// Sets the simulated hinge posture on an iPhone Duo simulator.
+- (void)setSimulatedDuoHingeStatus:(UIHingeStatus)hingeStatus
+    API_AVAILABLE(ios(27.1));
+
+// Sets the simulated device orientation on an iPhone Duo simulator.
+- (void)setSimulatedDuoOrientation:(UIDeviceOrientation)orientation;
 
 #pragma mark - Profile Utilities (EG2)
 
@@ -528,6 +550,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns the tab title of the current tab.
 - (NSString*)currentTabTitle;
 
+// Waits for the tab title of the current tab to match `tabTitle`.
+- (void)waitForCurrentTabTitle:(NSString*)tabTitle;
+
 // Returns the tab title of the next tab. Assumes that next tab exists.
 - (NSString*)nextTabTitle;
 
@@ -645,6 +670,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // play well together, so EG often fails to interact with the tools menu in
 // secondary windows.
 - (void)openSettingsInWindowWithNumber:(int)windowNumber;
+
+// Shows the tab switcher directly (not via the UI) in the window with the
+// given number.
+- (void)showTabSwitcherInWindowWithNumber:(int)windowNumber;
 
 #pragma mark - SignIn Utilities (EG2)
 

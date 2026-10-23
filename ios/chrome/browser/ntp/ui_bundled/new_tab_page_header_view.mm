@@ -910,8 +910,11 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     self.alpha = std::max(1 - progress, 0.01);
 
   widthConstraint.constant = searchFieldNormalWidth;
+  CGFloat fakeLocationBarHeightMargin =
+      IsNewTabPageUICleanupEnabled() ? 0 : kFakeLocationBarHeightMargin;
   self.fakeLocationBarHeightConstraint.constant =
-      fakeOmniboxHeight - kFakeLocationBarHeightMargin;
+      fakeOmniboxHeight - fakeLocationBarHeightMargin;
+
   self.fakeLocationBar.layer.cornerRadius =
       self.fakeLocationBarHeightConstraint.constant / 2;
 
@@ -1215,6 +1218,12 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   _toolsMenuButton = toolsMenuButton;
   _toolsMenuButton.blueDot = _hasToolsMenuBlueDot;
 
+  if (IsOverflowMenuHomeCustomizationEntrypointEnabled() &&
+      IsNTPEphemeralThemeEnabled()) {
+    [self.layoutGuideCenter referenceView:toolsMenuButton
+                                underName:kFeedIPHNamedGuide];
+  }
+
   [self applyBackgroundTheme];
 }
 
@@ -1343,6 +1352,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   }
   _isAIMAllowed = allowed;
   [self refreshFakeboxContent];
+  [self updateFakeboxDisplay];
 }
 
 - (void)setFuseboxEligible:(BOOL)eligible {
@@ -2190,8 +2200,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 }
 
 - (CGFloat)headerHeight {
-  return content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
-                                                  self.traitCollection);
+  return content_suggestions::HeightForLogoHeader(
+      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
 }
 
 #pragma mark - Private (Fakebox & Logo Layout Helpers)
@@ -2213,7 +2223,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
 - (void)updateFakeboxDisplay {
   self.doodleTopMarginConstraint.constant = content_suggestions::LogoTopPadding(
-      self.searchEngineLogoState, self.traitCollection);
+      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
   [self.doodleHeightConstraint
       setConstant:content_suggestions::DoodleHeight(self.searchEngineLogoState,
                                                     self.traitCollection)];
@@ -2221,8 +2231,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       CanShowTabStrip(self) &&
       (self.searchEngineLogoState == SearchEngineLogoState::kNone);
   self.headerViewHeightConstraint.constant =
-      content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
-                                               self.traitCollection);
+      content_suggestions::HeightForLogoHeader(
+          self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
   [self layoutIfNeeded];
 }
 
@@ -2233,7 +2243,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       constraintEqualToAnchor:headerView.topAnchor
                      constant:content_suggestions::LogoTopPadding(
                                   self.searchEngineLogoState,
-                                  self.traitCollection)];
+                                  self.traitCollection, _isAIMAllowed)];
   self.doodleHeightConstraint = [logoView.heightAnchor
       constraintEqualToConstant:content_suggestions::DoodleHeight(
                                     self.searchEngineLogoState,

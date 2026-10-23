@@ -25,6 +25,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -270,36 +271,13 @@ public class SettingsPageFragmentDelegateImpl
                         mModalDialogSupplier,
                         () -> mSearchCoordinator);
 
-        mSettingsHostFragment =
-                (SettingsHostFragment) fragmentManager.findFragmentByTag(mFragmentTag);
-        if (mSettingsHostFragment == null) {
-            mSettingsHostFragment = new SettingsHostFragment();
-            // Set the dependency provider before executing the transaction so child fragments
-            // created during attachment (e.g. MainSettings) have their dependencies attached
-            // before creating their preferences.
-            mSettingsHostFragment.setDependencyProvider(dependencyProvider);
-            if (attachToContainer) {
-                // In standalone test activities, attach directly to the container because tests
-                // expect immediate view attachment.
-                fragmentManager
-                        .beginTransaction()
-                        .add(fragmentContainer.getId(), mSettingsHostFragment, mFragmentTag)
-                        .commitAllowingStateLoss();
-            } else {
-                // Add the fragment without a container using two-parameter add() to prevent
-                // multiple settings tabs from colliding on the same container ID during activity
-                // recreation.
-                fragmentManager
-                        .beginTransaction()
-                        .add(mSettingsHostFragment, mFragmentTag)
-                        .commitAllowingStateLoss();
-            }
-            // Execute the transaction so mSettingsHostFragment creates its view and getView() is
-            // non-null below.
-            fragmentManager.executePendingTransactions();
-        } else {
-            mSettingsHostFragment.setDependencyProvider(dependencyProvider);
+        if (ChromeFeatureList.sSettingsInTabUrlNav.isEnabled()) {
+            mSettingsNavigationDelegate = new SettingsInTabNavigationDelegate(mTab);
         }
+
+        mSettingsHostFragment =
+                createOrReuseHostFragment(
+                        fragmentManager, fragmentContainer, attachToContainer, dependencyProvider);
         mSettingsHostFragment.setSaveInstanceStateCallback(this::onSaveInstanceState);
         if (mSettingsHostFragment.isAttachedToActivity()) {
             attachEdgeToEdgeAdjusters(mSettingsHostFragment.getHostFragmentManager());
@@ -316,8 +294,6 @@ public class SettingsPageFragmentDelegateImpl
         }
 
         if (ChromeFeatureList.sSettingsInTabUrlNav.isEnabled()) {
-            mSettingsNavigationDelegate = new SettingsInTabNavigationDelegate(mTab);
-            mSettingsHostFragment.setSettingsNavigation(mSettingsNavigationDelegate);
             if (mTab.getUrl() != null && !mTab.getUrl().isEmpty()) {
                 String restoredUrl = mTab.getUrl().getSpec();
                 if (restoredUrl != null && !restoredUrl.isEmpty()) {
@@ -383,6 +359,60 @@ public class SettingsPageFragmentDelegateImpl
         }
     }
 
+    /**
+     * Returns the {@link SettingsHostFragment} for this tab, creating and committing it if the tab
+     * does not have one yet.
+     *
+     * <p>A host is reused when the {@link FragmentManager} outlived this delegate, e.g. across an
+     * activity recreation: the fragment is restored from the manager while every dependency it was
+     * given is bound to the activity that has just gone away, so both branches have to hand it the
+     * new ones.
+     */
+    private SettingsHostFragment createOrReuseHostFragment(
+            FragmentManager fragmentManager,
+            ViewGroup fragmentContainer,
+            boolean attachToContainer,
+            FragmentDependencyProvider dependencyProvider) {
+        SettingsHostFragment existingHostFragment =
+                (SettingsHostFragment) fragmentManager.findFragmentByTag(mFragmentTag);
+        if (existingHostFragment != null) {
+            attachHostDependencies(existingHostFragment, dependencyProvider);
+            return existingHostFragment;
+        }
+
+        SettingsHostFragment hostFragment = new SettingsHostFragment();
+        // Attach before executing the transaction: the host creates its initial child fragments
+        // (MultiColumnSettings, MainSettings) during it, and they read both the dependency
+        // provider and the URL-aware SettingsNavigation in onFragmentAttached(), before they
+        // create their preferences.
+        attachHostDependencies(hostFragment, dependencyProvider);
+
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        if (attachToContainer) {
+            // In standalone test activities, attach directly to the container because tests expect
+            // immediate view attachment.
+            transaction.add(fragmentContainer.getId(), hostFragment, mFragmentTag);
+        } else {
+            // Add the fragment without a container using two-parameter add() to prevent multiple
+            // settings tabs from colliding on the same container ID during activity recreation.
+            transaction.add(hostFragment, mFragmentTag);
+        }
+        transaction.commitAllowingStateLoss();
+
+        // Execute the transaction so the host creates its view and getView() is non-null for the
+        // caller.
+        fragmentManager.executePendingTransactions();
+        return hostFragment;
+    }
+
+    private void attachHostDependencies(
+            SettingsHostFragment hostFragment, FragmentDependencyProvider dependencyProvider) {
+        hostFragment.setDependencyProvider(dependencyProvider);
+        if (mSettingsNavigationDelegate != null) {
+            hostFragment.setSettingsNavigation(mSettingsNavigationDelegate);
+        }
+    }
+
     @Override
     public void updateForUrl(String url) {
         if (!ChromeFeatureList.sSettingsInTabUrlNav.isEnabled()) return;
@@ -411,7 +441,8 @@ public class SettingsPageFragmentDelegateImpl
         // A settings URL is user editable and is replayed from history, so it may be missing
         // arguments its page cannot do without, or name data that has since been deleted. Let the
         // registry decide, and send the user to the fallback page rather than crashing.
-        SettingsFragmentRegistry.Resolution resolution = SettingsFragmentRegistry.resolve(url);
+        SettingsFragmentRegistry.Resolution resolution =
+                SettingsFragmentRegistry.resolve(url, mProfile);
         if (resolution.redirectUrl != null && mSettingsNavigationDelegate != null) {
             // Replace rather than push: the entry being left is not a page the user can return to.
             mSettingsNavigationDelegate.redirectFromNavigation(resolution.redirectUrl);
@@ -441,6 +472,19 @@ public class SettingsPageFragmentDelegateImpl
 
     @Override
     public void destroySettings() {
+        // TODO(crbug.com/566898692): Replace this workaround with a proper fix.
+        // When the tab is detached from the activity, e.g. by TabReparentingController before a
+        // theme change or fold/unfold recreates the activity, TabImpl freezes and destroys this
+        // page *before* the activity saves its instance state. Keep the host fragment in the
+        // FragmentManager so that its state (including the open detail page) is saved, restored
+        // and adopted by the new SettingsPage once the tab is re-attached. Snapshot the per-tab
+        // UI state now, because the objects that provide it are destroyed below.
+        boolean keepHostFragment = mSettingsHostFragment != null && mTab.isDetachedFromActivity();
+        Bundle savedStateSnapshot = new Bundle();
+        if (keepHostFragment) {
+            onSaveInstanceState(savedStateSnapshot);
+        }
+
         assert mActivity instanceof ActivityLifecycleDispatcherProvider;
         ((ActivityLifecycleDispatcherProvider) mActivity).getLifecycleDispatcher().unregister(this);
 
@@ -505,7 +549,11 @@ public class SettingsPageFragmentDelegateImpl
             // destroy the shared host fragment or clear its callbacks.
             boolean isAdoptedByNewPage =
                     isUrlNavEnabled && mTab.getNativePage() instanceof SettingsPage;
-            if (!isAdoptedByNewPage) {
+            if (keepHostFragment) {
+                mSettingsHostFragment.setSaveInstanceStateCallback(
+                        outState -> outState.putAll(savedStateSnapshot));
+                mSettingsHostFragment.setSearchOpenSupplier(null);
+            } else if (!isAdoptedByNewPage) {
                 mSettingsHostFragment.setSaveInstanceStateCallback(null);
                 mSettingsHostFragment.setSearchOpenSupplier(null);
                 if (isUrlNavEnabled) {

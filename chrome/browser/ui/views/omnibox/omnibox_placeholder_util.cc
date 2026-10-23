@@ -75,20 +75,20 @@ void ComputePlaceholderText(
   } else if (ShouldInstallContextualTasksPlaceholderText(location_bar)) {
     // For Contextual Tasks page, use the page title as placeholder text.
     out_placeholder_text = location_bar->GetWebContents()->GetTitle();
-  } else if (const auto* default_provider = controller->client()
-                                                ->GetTemplateURLService()
-                                                ->GetDefaultSearchProvider()) {
+  } else if (controller->client()
+                 ->GetTemplateURLService()
+                 ->GetDefaultSearchProvider()) {
     const bool aim_popup_enabled =
         omnibox::IsAimPopupEnabled(location_bar->GetProfile());
     if (aim_popup_enabled &&
         search::DefaultSearchProviderIsGoogle(
             controller->client()->GetTemplateURLService())) {
-      out_placeholder_text = l10n_util::GetStringFUTF16(
-          IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT, default_provider->short_name());
+      out_placeholder_text =
+          l10n_util::GetStringUTF16(IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT);
     } else {
       // Otherwise, if a DSE is set, use the DSE placeholder text.
-      out_placeholder_text = l10n_util::GetStringFUTF16(
-          IDS_OMNIBOX_PLACEHOLDER_TEXT, default_provider->short_name());
+      out_placeholder_text =
+          l10n_util::GetStringUTF16(IDS_OMNIBOX_PLACEHOLDER_TEXT);
     }
   }
 }

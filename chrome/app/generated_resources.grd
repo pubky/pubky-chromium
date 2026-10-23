@@ -7425,7 +7425,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 
       <!-- Omnibox -->
       <message name="IDS_OMNIBOX_PLACEHOLDER_TEXT" desc="The text displayed in the Omnibox when it is empty and unfocused.">
-        Search <ph name="SEARCH_ENGINE_NAME">$1<ex>Google</ex></ph> or type a URL
+        Search or type a URL
       </message>
       <if expr="not use_titlecase">
         <message name="IDS_PASTE_AND_GO" desc="The text label of the Paste And Go menu item when the clipboard contains a URL">
@@ -7511,7 +7511,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 
       <!-- WebUI Omnibox -->
       <message name="IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT" desc="The text displayed in the WebUI Omnibox when it is empty and unfocused.">
-        Ask <ph name="SEARCH_ENGINE_NAME">$1<ex>Google</ex></ph> or type a URL
+        Search or type a URL
       </message>
       <message name="IDS_WEBUI_OMNIBOX_COMPOSE_ASK_ABOUT_THIS_PAGE" desc="Label for a button that allows the user to ask a question about the content of their current page.">
         Ask Google about this page
@@ -7656,7 +7656,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Try again
       </message>
       <message name="IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD" desc="The text displayed in the fakebox (on the New Tab page) when it is empty, Google is the default search engine, and the Material Design UI is enabled.">
-        Search Google or type a URL
+        Search or type a URL
       </message>
       <message name="IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_SHORT" desc="The text displayed in the fakebox (on the New Tab page) when it is empty, Google is the default search engine, and short hint text is enabled.">
         Search Google
@@ -7720,7 +7720,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Change shortcut in <ph name="BEGIN_LINK">&lt;a href="#" class="settings-link"&gt;</ph>Settings<ph name="END_LINK">&lt;/a&gt;</ph>
       </message>
       <message name="IDS_NTP_SEARCH_BOX_PLACEHOLDER_ASK_OR_TYPE" desc="A steady state placeholder text for the NTP searchbox">
-        Ask Google or type a URL
+        Search or type a URL
       </message>
       <message name="IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_ASK_GOOGLE" desc="One of the dynamically changing placeholder texts for the NTP searchbox">
         Ask Google

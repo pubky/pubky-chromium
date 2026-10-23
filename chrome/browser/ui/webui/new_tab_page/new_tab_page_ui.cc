@@ -719,9 +719,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
     } else {
       switch (ntp_realbox::kSteadyPlaceholder.Get()) {
         case ntp_realbox::PlaceholderText::ASK_OR_TYPE:
-          source->AddString("searchBoxPlaceholder",
-                            l10n_util::GetStringFUTF16(
-                                IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT, u"Google"));
+          source->AddLocalizedString("searchBoxPlaceholder",
+                                     IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT);
           break;
         case ntp_realbox::PlaceholderText::ASK:
           source->AddLocalizedString(

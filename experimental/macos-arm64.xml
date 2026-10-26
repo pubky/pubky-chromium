@@ -3,9 +3,9 @@
   <channel>
     <title>Pubky Chromium experimental, macOS arm64</title>
     <item>
-      <title>Pubky Chromium 156.0.8073.5</title>
-      <sparkle:version>8073.5</sparkle:version>
-      <sparkle:shortVersionString>156.0.8073.5</sparkle:shortVersionString>
+      <title>Pubky Chromium 156.0.8078.48</title>
+      <sparkle:version>8078.48</sparkle:version>
+      <sparkle:shortVersionString>156.0.8078.48</sparkle:shortVersionString>
       <sparkle:channel>experimental</sparkle:channel>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
@@ -14,13 +14,13 @@
       <pubky:platform>macos</pubky:platform>
       <pubky:architecture>arm64</pubky:architecture>
       <pubky:channel>experimental</pubky:channel>
-      <pubky:issued_at>2026-10-21T09:09:02Z</pubky:issued_at>
-      <pubky:expires_at>2027-04-19T09:09:02Z</pubky:expires_at>
-      <enclosure url="https://github.com/pubky/pubky-chromium/releases/download/pubky-macos-156.0.8073.5/pubky-chromium-156.0.8073.5-macos-arm64.zip" length="230917052" type="application/octet-stream" sparkle:edSignature="CNc5Ij3XksWEG4iEUsjD7H78eBJT7b53J6eGwNkbRz+AQNiW2Wisk38QEI0bLZQ9IJVgYgN/3PUIlpnoW8bdAA=="/>
+      <pubky:issued_at>2026-10-26T10:51:33Z</pubky:issued_at>
+      <pubky:expires_at>2027-04-24T10:51:33Z</pubky:expires_at>
+      <enclosure url="https://github.com/pubky/pubky-chromium/releases/download/pubky-macos-156.0.8078.48/pubky-chromium-156.0.8078.48-macos-arm64.zip" length="231202545" type="application/octet-stream" sparkle:edSignature="H+Akavc4CSuHeXK+29y06S9CbbQSsLhEQPPMye1YqAgCkMUcU4D4E7//y/KgVpKA9X6Alz7l4guQKIfJxH+NDw=="/>
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: vEXQBhU7/on0mEHj1bmauQDC4gD2Huz8huNb9F5l6R9J9AJvHP8/KB5HcP4gtZcdDobK/O4U6B0PgCe+sVELAw==
-length: 1372
+edSignature: buk7xD5m0YZvMfYlgH/ejhGOQlwAFHLh/vGQm8hvSMt8WfTzMPd0A/FGYfNEzsGpKHYPBXpUgKFuO/YyY3T9DA==
+length: 1377
 -->

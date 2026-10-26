@@ -961,3 +961,6 @@
 	path = webkit/data/test_shell/plugins
 	url = https://chrome-internal.googlesource.com/chrome/data/webkit_plugin_tests
 	gclient-condition = checkout_src_internal
+[submodule "third_party/pkarr"]
+	path = third_party/pkarr
+	url = https://github.com/pubky/pkarr.git

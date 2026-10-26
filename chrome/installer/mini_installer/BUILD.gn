@@ -240,6 +240,7 @@ action("mini_installer_archive") {
     }
     if (!use_v8_context_snapshot || include_both_v8_snapshots) {
       inputs += [ "$root_out_dir/snapshot_blob.bin" ]
+      deps += [ "//v8:run_mksnapshot_default" ]
       args += [ "--include_snapshotblob=1" ]
     }
   }

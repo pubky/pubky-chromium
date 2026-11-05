@@ -1,5 +1,9 @@
 # Pubky Chromium
 
+> [!WARNING]
+> Pubky Chromium is for development and experimentation only. It is not ready
+> for production use. Do not rely on it for everyday browsing or sensitive data.
+
 Chromium with strict PKDNS DNS-over-HTTPS defaults and native RFC 7250
 raw-public-key TLS for Ed25519 public-key URLs.
 
